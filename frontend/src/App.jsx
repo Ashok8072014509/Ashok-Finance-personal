@@ -159,10 +159,13 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-12 pb-24 sm:pb-6">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="font-semibold text-slate-700">
-            ASHOK FINANCE &copy; {new Date().getFullYear()} • 3 Dedicated Finance Lines System
-          </p>
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center space-x-2.5">
+            <img src="/logo.png" alt="Ashok Finance" className="w-6 h-6 rounded-md bg-black object-contain border border-amber-500/30" />
+            <p className="font-semibold text-slate-700">
+              ASHOK FINANCE &copy; {new Date().getFullYear()} • 3 Dedicated Finance Lines System
+            </p>
+          </div>
           <p className="text-slate-400">
             Morning (₹10L Base) • Evening 1 (₹10L Base) • Evening 2 (₹10L Base) • Total Baseline: ₹30,00,000
           </p>

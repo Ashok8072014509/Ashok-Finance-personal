@@ -40,8 +40,12 @@ export default function Header({
           
           {/* Logo & Title */}
           <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white shadow-md shadow-red-200 shrink-0">
-              <span className="font-black text-lg sm:text-xl tracking-wider">AF</span>
+            <div className="relative group shrink-0">
+              <img 
+                src="/logo.png" 
+                alt="Ashok Finance Logo" 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-contain bg-black shadow-md shadow-slate-300/40 border border-amber-500/30 p-0.5 transition-transform group-hover:scale-105"
+              />
             </div>
             <div>
               <div className="flex items-center space-x-1.5 sm:space-x-2">
