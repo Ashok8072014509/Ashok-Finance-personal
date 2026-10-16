@@ -16,6 +16,7 @@ export default function EditEntryModal({
   onUpdate, 
   onDelete, 
   lines = [], 
+  linesSummary = [],
   currentBag = 1000000 
 }) {
   const [entryDate, setEntryDate] = useState('');
@@ -47,7 +48,11 @@ export default function EditEntryModal({
   // Previous net impact
   const prevNet = (Number(entry.income) || 0) - (Number(entry.outgoing) || 0);
   const deltaImpact = netAmount - prevNet;
-  const projectedBag = currentBag + deltaImpact;
+  
+  const activeLineSummary = linesSummary.find((l) => l.line_id === lineId);
+  const activeLineCurrentBag = Number(activeLineSummary?.current_bag) || currentBag;
+  const projectedBag = activeLineCurrentBag + deltaImpact;
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -95,30 +100,33 @@ export default function EditEntryModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-lg w-full border border-red-100 shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-2xs overflow-y-auto">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full border border-red-100 shadow-2xl overflow-hidden my-0 sm:my-8 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in duration-200">
         
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-2 sm:hidden" />
+
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-800 to-rose-700 px-6 py-4 text-white flex items-center justify-between">
+        <div className="bg-gradient-to-r from-red-800 to-rose-700 px-5 sm:px-6 py-4 text-white flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-xl bg-white/10">
               <Edit3 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-lg leading-tight">Edit Entry</h3>
+              <h3 className="font-extrabold text-base sm:text-lg leading-tight">Edit Entry</h3>
               <p className="text-xs text-red-100/90">Modify amounts, line, or date</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -170,11 +178,12 @@ export default function EditEntryModal({
                 <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">₹</span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="any"
                   value={income}
                   onChange={(e) => setIncome(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none font-semibold text-emerald-800 transition"
+                  className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none font-semibold text-emerald-800 transition"
                 />
               </div>
             </div>
@@ -187,11 +196,12 @@ export default function EditEntryModal({
                 <span className="absolute left-3 top-2.5 text-slate-400 text-sm font-semibold">₹</span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   step="any"
                   value={outgoing}
                   onChange={(e) => setOutgoing(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm rounded-xl border border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none font-semibold text-red-800 transition"
+                  className="w-full pl-8 pr-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 outline-none font-semibold text-red-800 transition"
                 />
               </div>
             </div>
@@ -239,30 +249,30 @@ export default function EditEntryModal({
           </div>
 
           {/* Actions */}
-          <div className="pt-2 flex items-center justify-between">
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <button
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || isSubmitting}
-              className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-red-600 hover:bg-red-50 border border-red-200 active:scale-95 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+              <span>{isDeleting ? 'Deleting...' : 'Delete Entry'}</span>
             </button>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100 active:scale-95 transition cursor-pointer text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-200 transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                className="flex-2 sm:flex-initial px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-md shadow-red-200 transition flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Edit3 className="w-4 h-4" />
                 <span>{isSubmitting ? 'Updating...' : 'Update Entry'}</span>

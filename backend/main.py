@@ -20,10 +20,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS configuration for local development and Render/Vercel production
+# CORS configuration for local development, mobile IP access, and Render/Vercel production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,7 +36,23 @@ def home():
         "status": "online",
         "lines": [l["name"] for l in DEFAULT_LINES],
         "default_bag_capital": "INR 10,00,000 (10 Lakhs)",
+        "database_status": db.db_status_message,
         "docs_url": "/docs"
+    }
+
+# ----------------- HIGH-SPEED BOOTSTRAP (1 ROUNDTRIP) -----------------
+@app.get("/api/bootstrap")
+def get_bootstrap_data():
+    """Returns lines, bag status, and entries in a single high-speed roundtrip"""
+    lines = db.get_lines()
+    entries = db.get_entries()
+    line_bags = db.get_line_starting_bags()
+    status = db.get_bag_status(all_entries=entries, line_bags=line_bags)
+    return {
+        "lines": lines,
+        "bag_status": status,
+        "entries": entries,
+        "database_source": status.get("database_source", "sqlite")
     }
 
 # ----------------- LINES -----------------
@@ -55,9 +71,15 @@ def get_bag_settings():
 
 @app.post("/api/bag/settings")
 def update_bag_settings(payload: BagSettingsUpdate):
-    updated = db.update_bag_settings(payload.starting_bag, payload.notes)
+    updated = db.update_bag_settings(
+        starting_bag=payload.starting_bag,
+        notes=payload.notes,
+        line_id=payload.line_id,
+        line_starting_bags=payload.line_starting_bags
+    )
     status = db.get_bag_status()
     return {"message": "Bag settings updated successfully", "settings": updated, "status": status}
+
 
 # ----------------- ENTRIES CRUD -----------------
 @app.get("/api/entries")

@@ -22,7 +22,13 @@ const DEFAULT_LINES = [
   },
 ];
 
-const DEFAULT_STARTING_BAG = 1000000; // 10 Lakhs
+const DEFAULT_LINE_STARTING_BAGS = {
+  morning: 1000000,
+  evening_1: 1000000,
+  evening_2: 1000000,
+};
+
+const DEFAULT_STARTING_BAG = 3000000; // 3 lines combined default (10L each)
 
 // Helper to get or set Supabase credentials from localStorage or env
 export const getSupabaseConfig = () => {
@@ -84,15 +90,22 @@ const getLocalSettings = () => {
   const raw = localStorage.getItem(LOCAL_STORAGE_KEY_SETTINGS);
   if (raw) {
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed.line_starting_bags) {
+        parsed.line_starting_bags = { ...DEFAULT_LINE_STARTING_BAGS };
+        parsed.starting_bag = 3000000;
+        localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(parsed));
+      }
+      return parsed;
     } catch {
       // fallback
     }
   }
   const initial = {
     starting_bag: DEFAULT_STARTING_BAG,
+    line_starting_bags: { ...DEFAULT_LINE_STARTING_BAGS },
     currency: 'INR',
-    notes: 'Ashok Finance Initial Bag Capital (10 Lakhs)',
+    notes: 'Ashok Finance Initial Bag Capital (10 Lakhs per line)',
   };
   localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(initial));
   return initial;
@@ -125,7 +138,7 @@ const getLocalEntries = () => {
       income: 65000,
       outgoing: 25000,
       net_amount: 40000,
-      notes: 'Morning interest collection & fresh disbursement',
+      notes: 'Morning collection & fresh loan disbursement',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -137,7 +150,7 @@ const getLocalEntries = () => {
       income: 42000,
       outgoing: 18000,
       net_amount: 24000,
-      notes: 'Market line collection',
+      notes: 'Market line daily collection',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -163,18 +176,79 @@ const saveLocalEntries = (entries) => {
 };
 
 // ----------------- CALCULATION HELPER -----------------
-export const calculateBagStatus = (startingBag, entries) => {
+export const calculateBagStatus = (startingBagsInput, entries = []) => {
+  let lineStartingBags = { ...DEFAULT_LINE_STARTING_BAGS };
+  if (typeof startingBagsInput === 'object' && startingBagsInput !== null) {
+    if (startingBagsInput.line_starting_bags) {
+      lineStartingBags = { ...lineStartingBags, ...startingBagsInput.line_starting_bags };
+    } else {
+      lineStartingBags = { ...lineStartingBags, ...startingBagsInput };
+    }
+  } else if (typeof startingBagsInput === 'number') {
+    if (startingBagsInput === 1000000) {
+      lineStartingBags = { morning: 1000000, evening_1: 1000000, evening_2: 1000000 };
+    } else {
+      const perLine = Math.round(startingBagsInput / 3);
+      lineStartingBags = { morning: perLine, evening_1: perLine, evening_2: perLine };
+    }
+  }
+
+  const linesSummary = {
+    morning: { 
+      line_id: 'morning', 
+      line_name: 'ASHOK FINANCE MORNING', 
+      starting_bag: Number(lineStartingBags.morning) || 1000000,
+      total_income: 0, 
+      total_outgoing: 0, 
+      net_amount: 0, 
+      today_income: 0,
+      today_outgoing: 0,
+      today_net: 0,
+      month_income: 0,
+      month_outgoing: 0,
+      month_net: 0,
+      entries_count: 0 
+    },
+    evening_1: { 
+      line_id: 'evening_1', 
+      line_name: 'ASHOK FINANCE EVENING 1', 
+      starting_bag: Number(lineStartingBags.evening_1) || 1000000,
+      total_income: 0, 
+      total_outgoing: 0, 
+      net_amount: 0, 
+      today_income: 0,
+      today_outgoing: 0,
+      today_net: 0,
+      month_income: 0,
+      month_outgoing: 0,
+      month_net: 0,
+      entries_count: 0 
+    },
+    evening_2: { 
+      line_id: 'evening_2', 
+      line_name: 'ASHOK FINANCE EVENING 2', 
+      starting_bag: Number(lineStartingBags.evening_2) || 1000000,
+      total_income: 0, 
+      total_outgoing: 0, 
+      net_amount: 0, 
+      today_income: 0,
+      today_outgoing: 0,
+      today_net: 0,
+      month_income: 0,
+      month_outgoing: 0,
+      month_net: 0,
+      entries_count: 0 
+    },
+  };
+
   let totalIncome = 0;
   let totalOutgoing = 0;
   let todayIncome = 0;
   let todayOutgoing = 0;
+  let monthIncome = 0;
+  let monthOutgoing = 0;
   const todayStr = new Date().toISOString().slice(0, 10);
-
-  const linesSummary = {
-    morning: { line_id: 'morning', line_name: 'ASHOK FINANCE MORNING', total_income: 0, total_outgoing: 0, net_amount: 0, entries_count: 0 },
-    evening_1: { line_id: 'evening_1', line_name: 'ASHOK FINANCE EVENING 1', total_income: 0, total_outgoing: 0, net_amount: 0, entries_count: 0 },
-    evening_2: { line_id: 'evening_2', line_name: 'ASHOK FINANCE EVENING 2', total_income: 0, total_outgoing: 0, net_amount: 0, entries_count: 0 },
-  };
+  const monthPrefix = new Date().toISOString().slice(0, 7);
 
   entries.forEach((e) => {
     const inc = Number(e.income) || 0;
@@ -182,9 +256,17 @@ export const calculateBagStatus = (startingBag, entries) => {
     totalIncome += inc;
     totalOutgoing += out;
 
-    if (e.entry_date === todayStr) {
+    const isToday = (e.entry_date === todayStr);
+    const isMonth = (e.entry_date && e.entry_date.startsWith(monthPrefix));
+
+    if (isToday) {
       todayIncome += inc;
       todayOutgoing += out;
+    }
+
+    if (isMonth) {
+      monthIncome += inc;
+      monthOutgoing += out;
     }
 
     const lid = e.line_id;
@@ -193,45 +275,117 @@ export const calculateBagStatus = (startingBag, entries) => {
       linesSummary[lid].total_outgoing += out;
       linesSummary[lid].net_amount += (inc - out);
       linesSummary[lid].entries_count += 1;
+      if (isToday) {
+        linesSummary[lid].today_income += inc;
+        linesSummary[lid].today_outgoing += out;
+        linesSummary[lid].today_net += (inc - out);
+      }
+      if (isMonth) {
+        linesSummary[lid].month_income += inc;
+        linesSummary[lid].month_outgoing += out;
+        linesSummary[lid].month_net += (inc - out);
+      }
     }
   });
 
+  // Calculate line-specific current bags and growth
+  Object.keys(linesSummary).forEach((lid) => {
+    const item = linesSummary[lid];
+    item.current_bag = item.starting_bag + item.net_amount;
+    item.growth_amount = item.current_bag - item.starting_bag;
+    item.growth_percent = item.starting_bag > 0 ? Number(((item.growth_amount / item.starting_bag) * 100).toFixed(2)) : 0;
+  });
+
+  const totalStartingBag = Object.values(lineStartingBags).reduce((a, b) => a + Number(b), 0);
   const totalNet = totalIncome - totalOutgoing;
-  // Starting bag + net (adds if positive, subtracts if negative)
-  const currentBag = startingBag + totalNet;
+  const totalCurrentBag = totalStartingBag + totalNet;
   const todayNet = todayIncome - todayOutgoing;
+  const monthNet = monthIncome - monthOutgoing;
+  const growthAmount = totalCurrentBag - totalStartingBag;
+  const growthPercent = totalStartingBag > 0 ? Number(((growthAmount / totalStartingBag) * 100).toFixed(2)) : 0;
 
   return {
-    starting_bag: startingBag,
-    current_bag: currentBag,
+    starting_bag: totalStartingBag,
+    current_bag: totalCurrentBag,
     total_income: totalIncome,
     total_outgoing: totalOutgoing,
     total_net: totalNet,
     today_income: todayIncome,
     today_outgoing: todayOutgoing,
     today_net: todayNet,
+    month_income: monthIncome,
+    month_outgoing: monthOutgoing,
+    month_net: monthNet,
+    growth_amount: growthAmount,
+    growth_percent: growthPercent,
     lines_summary: Object.values(linesSummary),
+    line_starting_bags: lineStartingBags,
     total_entries: entries.length,
     as_of: new Date().toISOString(),
   };
 };
 
-// ----------------- UNIFIED DATA SERVICE -----------------
+
 export const api = {
   getLines: async () => {
     return DEFAULT_LINES;
+  },
+
+  // High-speed single roundtrip initialization
+  getBootstrap: async () => {
+    const backendUrl = getBackendUrl();
+    if (backendUrl) {
+      try {
+        const res = await fetch(`${backendUrl}/api/bootstrap`, { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.entries) saveLocalEntries(data.entries);
+          return {
+            lines: data.lines || DEFAULT_LINES,
+            bagStatus: data.bag_status,
+            entries: data.entries || [],
+            source: data.database_source === 'supabase' ? 'supabase' : 'backend',
+          };
+        }
+      } catch {
+        // Backend offline, fallback below
+      }
+    }
+
+    // Fallback parallel fetch
+    const [statusRes, entriesRes] = await Promise.all([
+      api.getBagStatus(),
+      api.getEntries()
+    ]);
+    return {
+      lines: DEFAULT_LINES,
+      bagStatus: statusRes.data,
+      entries: entriesRes.data,
+      source: statusRes.source,
+    };
   },
 
   getBagStatus: async () => {
     // 1. Try Supabase if configured
     if (supabase) {
       try {
-        const { data: sData } = await supabase.from('bag_settings').select('*').eq('id', 1).maybeSingle();
-        const startingBag = Number(sData?.starting_bag) || DEFAULT_STARTING_BAG;
+        let lineBags = { ...DEFAULT_LINE_STARTING_BAGS };
+        const { data: lbsData } = await supabase.from('line_bag_settings').select('*');
+        if (lbsData && lbsData.length > 0) {
+          lbsData.forEach((row) => {
+            lineBags[row.line_id] = Number(row.starting_bag);
+          });
+        } else {
+          const { data: sData } = await supabase.from('bag_settings').select('*').eq('id', 1).maybeSingle();
+          if (sData?.starting_bag) {
+            const perLine = Math.round(Number(sData.starting_bag) / 3);
+            lineBags = { morning: perLine, evening_1: perLine, evening_2: perLine };
+          }
+        }
 
         const { data: eData } = await supabase.from('daily_entries').select('*');
         if (eData) {
-          const status = calculateBagStatus(startingBag, eData);
+          const status = calculateBagStatus(lineBags, eData);
           return { data: status, source: 'supabase' };
         }
       } catch (err) {
@@ -246,7 +400,8 @@ export const api = {
         const res = await fetch(`${backendUrl}/api/bag`, { signal: AbortSignal.timeout(3000) });
         if (res.ok) {
           const data = await res.json();
-          return { data, source: 'backend' };
+          const source = data.database_source === 'supabase' ? 'supabase' : 'backend';
+          return { data, source };
         }
       } catch {
         // backend offline
@@ -256,25 +411,45 @@ export const api = {
     // 3. Fallback to LocalStorage
     const settings = getLocalSettings();
     const entries = getLocalEntries();
-    const status = calculateBagStatus(Number(settings.starting_bag) || DEFAULT_STARTING_BAG, entries);
+    const status = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, entries);
     return { data: status, source: 'local' };
   },
 
-  updateStartingBag: async (newStartingBag, notes = '') => {
-    const bagNum = Number(newStartingBag);
-
-    // Update LocalStorage first
+  updateStartingBag: async (newStartingBag, notes = '', lineId = null, lineStartingBags = null) => {
     const settings = getLocalSettings();
-    settings.starting_bag = bagNum;
+    let currentBags = { ...settings.line_starting_bags };
+
+    if (lineStartingBags) {
+      currentBags = { ...currentBags, ...lineStartingBags };
+    } else if (lineId && lineId !== 'all') {
+      currentBags[lineId] = Number(newStartingBag);
+    } else if (newStartingBag !== null && newStartingBag !== undefined) {
+      currentBags = {
+        morning: Number(newStartingBag),
+        evening_1: Number(newStartingBag),
+        evening_2: Number(newStartingBag),
+      };
+    }
+
+    settings.line_starting_bags = currentBags;
+    settings.starting_bag = Object.values(currentBags).reduce((a, b) => a + Number(b), 0);
     if (notes) settings.notes = notes;
     saveLocalSettings(settings);
 
     // Sync to Supabase
     if (supabase) {
       try {
+        for (const [lid, amt] of Object.entries(currentBags)) {
+          await supabase.from('line_bag_settings').upsert({
+            line_id: lid,
+            starting_bag: amt,
+            notes,
+            updated_at: new Date().toISOString(),
+          });
+        }
         await supabase.from('bag_settings').upsert({
           id: 1,
-          starting_bag: bagNum,
+          starting_bag: settings.starting_bag,
           notes: notes || settings.notes,
           updated_at: new Date().toISOString(),
         });
@@ -290,7 +465,12 @@ export const api = {
         await fetch(`${backendUrl}/api/bag/settings`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ starting_bag: bagNum, notes }),
+          body: JSON.stringify({ 
+            starting_bag: settings.starting_bag, 
+            line_id: lineId,
+            line_starting_bags: currentBags,
+            notes 
+          }),
         });
       } catch {
         // backend offline
@@ -298,8 +478,9 @@ export const api = {
     }
 
     const entries = getLocalEntries();
-    return calculateBagStatus(bagNum, entries);
+    return calculateBagStatus(currentBags, entries);
   },
+
 
   getEntries: async (filters = {}) => {
     const { startDate, endDate, lineId } = filters;
@@ -385,52 +566,45 @@ export const api = {
       updated_at: nowIso,
     };
 
-    // 1. Save locally
+    // 1. Immediately update locally & compute bag status in memory (0ms UI latency)
     const current = getLocalEntries();
     const updated = [newRecord, ...current];
     saveLocalEntries(updated);
 
-    // 2. Sync to Supabase
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('daily_entries').insert([{
-          id: newRecord.id,
+    const settings = getLocalSettings();
+    const immediateBagStatus = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, updated);
+
+    // 2. Seamless remote cloud sync (Backend priority, then Supabase)
+    const backendUrl = getBackendUrl();
+    if (backendUrl) {
+      fetch(`${backendUrl}/api/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           entry_date: newRecord.entry_date,
           line_id: newRecord.line_id,
           income: newRecord.income,
           outgoing: newRecord.outgoing,
-          net_amount: newRecord.net_amount,
           notes: newRecord.notes,
-        }]).select();
+        }),
+      }).catch((err) => console.warn('Backend sync failed:', err));
+    } else if (supabase) {
+      supabase.from('daily_entries').insert([{
+        id: newRecord.id,
+        entry_date: newRecord.entry_date,
+        line_id: newRecord.line_id,
+        income: newRecord.income,
+        outgoing: newRecord.outgoing,
+        net_amount: newRecord.net_amount,
+        notes: newRecord.notes,
+      }]).then(({ data, error }) => {
         if (!error && data?.[0]) {
           newRecord.id = data[0].id;
         }
-      } catch (e) {
-        console.warn('Supabase createEntry sync failed:', e);
-      }
+      }).catch((err) => console.warn('Supabase sync failed:', err));
     }
 
-    // 3. Sync to Backend
-    const backendUrl = getBackendUrl();
-    if (backendUrl) {
-      try {
-        await fetch(`${backendUrl}/api/entries`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entry_date: newRecord.entry_date,
-            line_id: newRecord.line_id,
-            income: newRecord.income,
-            outgoing: newRecord.outgoing,
-            notes: newRecord.notes,
-          }),
-        });
-      } catch {
-        // backend offline
-      }
-    }
-
-    return newRecord;
+    return { entry: newRecord, bagStatus: immediateBagStatus, entries: updated };
   },
 
   updateEntry: async (id, entryData) => {
@@ -440,92 +614,78 @@ export const api = {
     const net = income - outgoing;
     const nowIso = new Date().toISOString();
 
-    // 1. Update locally
+    // 1. Update locally & compute new bag balance immediately
     const current = getLocalEntries();
+    let updatedRecord = null;
     const updated = current.map((e) => {
       if (e.id === id) {
-        return {
+        updatedRecord = {
           ...e,
           entry_date: entryData.entry_date ?? e.entry_date,
           line_id: entryData.line_id ?? e.line_id,
-          line_name: lineMap[entryData.line_id ?? e.line_id],
+          line_name: lineMap[entryData.line_id ?? e.line_id] || e.line_id,
           income,
           outgoing,
           net_amount: net,
           notes: entryData.notes ?? e.notes,
           updated_at: nowIso,
         };
+        return updatedRecord;
       }
       return e;
     });
     saveLocalEntries(updated);
 
-    // 2. Supabase
-    if (supabase) {
-      try {
-        await supabase.from('daily_entries').update({
+    const settings = getLocalSettings();
+    const immediateBagStatus = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, updated);
+
+    // 2. Remote sync
+    const backendUrl = getBackendUrl();
+    if (backendUrl) {
+      fetch(`${backendUrl}/api/entries/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           entry_date: entryData.entry_date,
           line_id: entryData.line_id,
           income,
           outgoing,
-          net_amount: net,
           notes: entryData.notes,
-          updated_at: nowIso,
-        }).eq('id', id);
-      } catch (e) {
-        console.warn('Supabase updateEntry failed:', e);
-      }
+        }),
+      }).catch((err) => console.warn('Backend update failed:', err));
+    } else if (supabase) {
+      supabase.from('daily_entries').update({
+        entry_date: entryData.entry_date,
+        line_id: entryData.line_id,
+        income,
+        outgoing,
+        net_amount: net,
+        notes: entryData.notes,
+        updated_at: nowIso,
+      }).eq('id', id).catch((err) => console.warn('Supabase update failed:', err));
     }
 
-    // 3. Backend
-    const backendUrl = getBackendUrl();
-    if (backendUrl) {
-      try {
-        await fetch(`${backendUrl}/api/entries/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entry_date: entryData.entry_date,
-            line_id: entryData.line_id,
-            income,
-            outgoing,
-            notes: entryData.notes,
-          }),
-        });
-      } catch {
-        // backend offline
-      }
-    }
-
-    return updated.find((e) => e.id === id);
+    return { entry: updatedRecord, bagStatus: immediateBagStatus, entries: updated };
   },
 
   deleteEntry: async (id) => {
-    // 1. Local
+    // 1. Immediately delete locally & recalculate bag status
     const current = getLocalEntries();
     const updated = current.filter((e) => e.id !== id);
     saveLocalEntries(updated);
 
-    // 2. Supabase
-    if (supabase) {
-      try {
-        await supabase.from('daily_entries').delete().eq('id', id);
-      } catch (e) {
-        console.warn('Supabase deleteEntry failed:', e);
-      }
-    }
+    const settings = getLocalSettings();
+    const immediateBagStatus = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, updated);
 
-    // 3. Backend
+    // 2. Remote sync
     const backendUrl = getBackendUrl();
     if (backendUrl) {
-      try {
-        await fetch(`${backendUrl}/api/entries/${id}`, { method: 'DELETE' });
-      } catch {
-        // backend offline
-      }
+      fetch(`${backendUrl}/api/entries/${id}`, { method: 'DELETE' }).catch((err) => console.warn('Backend delete failed:', err));
+    } else if (supabase) {
+      supabase.from('daily_entries').delete().eq('id', id).catch((err) => console.warn('Supabase delete failed:', err));
     }
 
-    return true;
+    return { bagStatus: immediateBagStatus, entries: updated };
   },
 
   // Direct backend PDF report stream

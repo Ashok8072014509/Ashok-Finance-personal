@@ -20,6 +20,7 @@ export default function TransactionsTable({
   onEditEntry, 
   onDeleteEntry, 
   onOpenAddModal, 
+  onOpenExportPdfModal,
   activeLineId = 'all', 
   activeLineName = 'All Lines Combined' 
 }) {
@@ -39,12 +40,15 @@ export default function TransactionsTable({
 
     // Filter by date range
     const todayStr = new Date().toISOString().slice(0, 10);
+    const thisMonthPrefix = todayStr.slice(0, 7);
     const yesterdayDate = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
     if (dateFilter === 'today') {
       result = result.filter((e) => e.entry_date === todayStr);
     } else if (dateFilter === 'yesterday') {
       result = result.filter((e) => e.entry_date === yesterdayDate);
+    } else if (dateFilter === 'this_month') {
+      result = result.filter((e) => e.entry_date && e.entry_date.startsWith(thisMonthPrefix));
     } else if (dateFilter === 'week') {
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
       result = result.filter((e) => e.entry_date >= weekAgo && e.entry_date <= todayStr);
@@ -137,24 +141,40 @@ export default function TransactionsTable({
             </p>
           </div>
 
-          <button
-            onClick={onOpenAddModal}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-red-200 transition flex items-center justify-center space-x-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Record Daily Entry</span>
-          </button>
+          <div className="flex items-center space-x-2 w-full sm:w-auto">
+            {onOpenExportPdfModal && (
+              <button
+                id="table-export-pdf-btn"
+                onClick={onOpenExportPdfModal}
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 active:scale-98 text-slate-800 rounded-xl font-bold text-xs sm:text-sm border border-slate-200 transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                title="Download customized PDF statement"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-red-600 shrink-0" />
+                <span className="hidden sm:inline">Export PDF</span>
+                <span className="sm:hidden">Export PDF</span>
+              </button>
+            )}
+
+            <button
+              onClick={onOpenAddModal}
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-red-200 transition flex items-center justify-center space-x-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>+ Record Entry</span>
+            </button>
+          </div>
         </div>
 
         {/* Date Filter Pills & Search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
           
-          {/* Quick Date Buttons */}
-          <div className="flex items-center space-x-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0 text-xs">
+          {/* Quick Date Buttons with touch swipe */}
+          <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar pb-1 text-xs touch-pan-x">
             {[
               { id: 'all', label: 'All Time' },
               { id: 'today', label: 'Today' },
               { id: 'yesterday', label: 'Yesterday' },
+              { id: 'this_month', label: 'This Month (MTD)' },
               { id: 'week', label: 'Last 7 Days' },
               { id: 'month', label: 'Last 30 Days' },
               { id: 'custom', label: 'Custom' },
@@ -162,7 +182,7 @@ export default function TransactionsTable({
               <button
                 key={f.id}
                 onClick={() => setDateFilter(f.id)}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-semibold transition whitespace-nowrap cursor-pointer active:scale-95 ${
                   dateFilter === f.id
                     ? 'bg-slate-900 text-white shadow-2xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -174,14 +194,14 @@ export default function TransactionsTable({
           </div>
 
           {/* Search Box */}
-          <div className="relative min-w-[200px] sm:w-64">
+          <div className="relative w-full md:w-64">
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search remarks, amounts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-100 outline-none"
+              className="w-full pl-8 pr-3 py-2 sm:py-1.5 text-xs rounded-xl border border-slate-200 focus:border-red-500 focus:ring-1 focus:ring-red-100 outline-none bg-slate-50/50 focus:bg-white transition"
             />
           </div>
         </div>
@@ -337,19 +357,23 @@ export default function TransactionsTable({
                     {getLineBadge(e.line_id)}
                   </div>
                   
-                  {/* Actions */}
-                  <div className="flex items-center space-x-1">
+                  {/* Actions with comfortable touch targets */}
+                  <div className="flex items-center space-x-1.5">
                     <button
                       onClick={() => onEditEntry(e)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-red-700 bg-slate-100 hover:bg-red-50 transition cursor-pointer"
+                      className="w-8 h-8 rounded-xl text-slate-600 hover:text-red-700 bg-slate-100 hover:bg-red-50 active:scale-95 flex items-center justify-center transition cursor-pointer"
+                      title="Edit Entry"
+                      aria-label="Edit Entry"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      <Edit3 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onDeleteEntry(e.id)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 bg-slate-100 hover:bg-red-50 transition cursor-pointer"
+                      className="w-8 h-8 rounded-xl text-slate-400 hover:text-red-700 bg-slate-100 hover:bg-red-50 active:scale-95 flex items-center justify-center transition cursor-pointer"
+                      title="Delete Entry"
+                      aria-label="Delete Entry"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
