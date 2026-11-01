@@ -634,8 +634,10 @@ export const api = {
         });
         if (res.ok) {
           const data = await res.json();
-          saveLocalEntries(data);
-          return { data, source: 'backend' };
+          const localExisting = getLocalEntries();
+          const merged = mergeEntries(data || [], localExisting);
+          saveLocalEntries(merged);
+          return { data: merged, source: 'backend' };
         }
       } catch {
         // backend offline
