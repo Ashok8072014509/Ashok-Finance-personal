@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict, Any
 from dotenv import load_dotenv
 
@@ -553,6 +553,9 @@ class DatabaseManager:
         today_income = 0.0
         today_outgoing = 0.0
         today_str = date.today().isoformat()
+        yesterday_str = (date.today() - timedelta(days=1)).isoformat()
+        yesterday_income = 0.0
+        yesterday_outgoing = 0.0
 
         month_income = 0.0
         month_outgoing = 0.0
@@ -564,6 +567,7 @@ class DatabaseManager:
                 "line_id": l["id"],
                 "line_name": l["name"],
                 "starting_bag": float(line_bags.get(l["id"], 1000000.0)),
+                "opening_bag": float(line_bags.get(l["id"], 1000000.0)),
                 "current_bag": float(line_bags.get(l["id"], 1000000.0)),
                 "total_income": 0.0,
                 "total_outgoing": 0.0,
@@ -571,6 +575,13 @@ class DatabaseManager:
                 "today_income": 0.0,
                 "today_outgoing": 0.0,
                 "today_net": 0.0,
+                "yesterday_income": 0.0,
+                "yesterday_outgoing": 0.0,
+                "yesterday_net": 0.0,
+                "last_entry_date": None,
+                "last_entry_income": 0.0,
+                "last_entry_outgoing": 0.0,
+                "last_entry_net": 0.0,
                 "month_income": 0.0,
                 "month_outgoing": 0.0,
                 "month_net": 0.0,
@@ -581,43 +592,87 @@ class DatabaseManager:
             for l in lines
         }
 
+        # Track dates for determining last active recorded day
+        overall_dates_map = {}
+        line_dates_map = {l["id"]: {} for l in lines}
+        prior_to_today_net = 0.0
+        line_prior_to_today_net = {l["id"]: 0.0 for l in lines}
+
         for e in all_entries:
             inc = float(e.get("income", 0.0))
             out = float(e.get("outgoing", 0.0))
+            net = inc - out
             total_income += inc
             total_outgoing += out
 
             e_date = str(e.get("entry_date", ""))
             is_today = (e_date == today_str)
+            is_yesterday = (e_date == yesterday_str)
             is_month = e_date.startswith(month_prefix)
+            is_prior_to_today = (e_date < today_str) if e_date else False
+
+            if is_prior_to_today:
+                prior_to_today_net += net
 
             if is_today:
                 today_income += inc
                 today_outgoing += out
 
+            if is_yesterday:
+                yesterday_income += inc
+                yesterday_outgoing += out
+
             if is_month:
                 month_income += inc
                 month_outgoing += out
+
+            if e_date:
+                if e_date not in overall_dates_map:
+                    overall_dates_map[e_date] = {"income": 0.0, "outgoing": 0.0}
+                overall_dates_map[e_date]["income"] += inc
+                overall_dates_map[e_date]["outgoing"] += out
 
             lid = e.get("line_id")
             if lid in lines_summary:
                 lines_summary[lid]["total_income"] += inc
                 lines_summary[lid]["total_outgoing"] += out
-                lines_summary[lid]["net_amount"] += (inc - out)
+                lines_summary[lid]["net_amount"] += net
                 lines_summary[lid]["entries_count"] += 1
+                if is_prior_to_today:
+                    line_prior_to_today_net[lid] += net
                 if is_today:
                     lines_summary[lid]["today_income"] += inc
                     lines_summary[lid]["today_outgoing"] += out
-                    lines_summary[lid]["today_net"] += (inc - out)
+                    lines_summary[lid]["today_net"] += net
+                if is_yesterday:
+                    lines_summary[lid]["yesterday_income"] += inc
+                    lines_summary[lid]["yesterday_outgoing"] += out
+                    lines_summary[lid]["yesterday_net"] += net
                 if is_month:
                     lines_summary[lid]["month_income"] += inc
                     lines_summary[lid]["month_outgoing"] += out
-                    lines_summary[lid]["month_net"] += (inc - out)
+                    lines_summary[lid]["month_net"] += net
+                if e_date:
+                    if e_date not in line_dates_map[lid]:
+                        line_dates_map[lid][e_date] = {"income": 0.0, "outgoing": 0.0}
+                    line_dates_map[lid][e_date]["income"] += inc
+                    line_dates_map[lid][e_date]["outgoing"] += out
+
+        # Find overall last recorded date prior to today (or overall latest if none prior)
+        prior_dates = sorted([d for d in overall_dates_map.keys() if d < today_str], reverse=True)
+        last_date = prior_dates[0] if prior_dates else (sorted(overall_dates_map.keys(), reverse=True)[0] if overall_dates_map else None)
+        last_entry_income = overall_dates_map[last_date]["income"] if last_date else 0.0
+        last_entry_outgoing = overall_dates_map[last_date]["outgoing"] if last_date else 0.0
+        last_entry_net = last_entry_income - last_entry_outgoing
+
+        total_opening_bag = round(total_starting_bag + prior_to_today_net, 2)
 
         for lid, summary in lines_summary.items():
             start = summary["starting_bag"]
             net = round(summary["net_amount"], 2)
             cur = round(start + net, 2)
+            open_bag = round(start + line_prior_to_today_net[lid], 2)
+            summary["opening_bag"] = open_bag
             summary["current_bag"] = cur
             summary["growth_amount"] = round(cur - start, 2)
             summary["growth_percent"] = round((summary["growth_amount"] / start * 100), 2) if start > 0 else 0.0
@@ -626,6 +681,21 @@ class DatabaseManager:
             summary["today_income"] = round(summary["today_income"], 2)
             summary["today_outgoing"] = round(summary["today_outgoing"], 2)
             summary["today_net"] = round(summary["today_net"], 2)
+            summary["yesterday_income"] = round(summary["yesterday_income"], 2)
+            summary["yesterday_outgoing"] = round(summary["yesterday_outgoing"], 2)
+            summary["yesterday_net"] = round(summary["yesterday_net"], 2)
+
+            # Determine line's last recorded date prior to today
+            l_dates = line_dates_map[lid]
+            l_prior = sorted([d for d in l_dates.keys() if d < today_str], reverse=True)
+            l_last_date = l_prior[0] if l_prior else (sorted(l_dates.keys(), reverse=True)[0] if l_dates else None)
+            summary["last_entry_date"] = l_last_date
+            l_inc = l_dates[l_last_date]["income"] if l_last_date else 0.0
+            l_out = l_dates[l_last_date]["outgoing"] if l_last_date else 0.0
+            summary["last_entry_income"] = round(l_inc, 2)
+            summary["last_entry_outgoing"] = round(l_out, 2)
+            summary["last_entry_net"] = round(l_inc - l_out, 2)
+
             summary["month_income"] = round(summary["month_income"], 2)
             summary["month_outgoing"] = round(summary["month_outgoing"], 2)
             summary["month_net"] = round(summary["month_net"], 2)
@@ -633,12 +703,14 @@ class DatabaseManager:
         total_net = round(total_income - total_outgoing, 2)
         total_current_bag = round(total_starting_bag + total_net, 2)
         today_net = round(today_income - today_outgoing, 2)
+        yesterday_net = round(yesterday_income - yesterday_outgoing, 2)
         month_net = round(month_income - month_outgoing, 2)
         growth_amount = round(total_current_bag - total_starting_bag, 2)
         growth_percent = round((growth_amount / total_starting_bag * 100), 2) if total_starting_bag > 0 else 0.0
 
         return {
             "starting_bag": round(total_starting_bag, 2),
+            "opening_bag": total_opening_bag,
             "current_bag": total_current_bag,
             "total_income": round(total_income, 2),
             "total_outgoing": round(total_outgoing, 2),
@@ -646,6 +718,13 @@ class DatabaseManager:
             "today_income": round(today_income, 2),
             "today_outgoing": round(today_outgoing, 2),
             "today_net": today_net,
+            "yesterday_income": round(yesterday_income, 2),
+            "yesterday_outgoing": round(yesterday_outgoing, 2),
+            "yesterday_net": yesterday_net,
+            "last_entry_date": last_date,
+            "last_entry_income": round(last_entry_income, 2),
+            "last_entry_outgoing": round(last_entry_outgoing, 2),
+            "last_entry_net": round(last_entry_net, 2),
             "month_income": round(month_income, 2),
             "month_outgoing": round(month_outgoing, 2),
             "month_net": month_net,

@@ -53,6 +53,7 @@ class LineSummary(BaseModel):
     line_id: str
     line_name: str
     starting_bag: float = 1000000.0
+    opening_bag: float = 1000000.0
     current_bag: float = 1000000.0
     total_income: float = 0.0
     total_outgoing: float = 0.0
@@ -60,6 +61,13 @@ class LineSummary(BaseModel):
     today_income: float = 0.0
     today_outgoing: float = 0.0
     today_net: float = 0.0
+    yesterday_income: float = 0.0
+    yesterday_outgoing: float = 0.0
+    yesterday_net: float = 0.0
+    last_entry_date: Optional[str] = None
+    last_entry_income: float = 0.0
+    last_entry_outgoing: float = 0.0
+    last_entry_net: float = 0.0
     month_income: float = 0.0
     month_outgoing: float = 0.0
     month_net: float = 0.0
@@ -69,6 +77,7 @@ class LineSummary(BaseModel):
 
 class BagStatusResponse(BaseModel):
     starting_bag: float
+    opening_bag: float = 3000000.0
     current_bag: float
     total_income: float
     total_outgoing: float
@@ -76,6 +85,13 @@ class BagStatusResponse(BaseModel):
     today_income: float
     today_outgoing: float
     today_net: float
+    yesterday_income: float = 0.0
+    yesterday_outgoing: float = 0.0
+    yesterday_net: float = 0.0
+    last_entry_date: Optional[str] = None
+    last_entry_income: float = 0.0
+    last_entry_outgoing: float = 0.0
+    last_entry_net: float = 0.0
     month_income: float = 0.0
     month_outgoing: float = 0.0
     month_net: float = 0.0

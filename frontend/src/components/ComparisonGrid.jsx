@@ -158,10 +158,16 @@ export default function ComparisonGrid({
                   {/* Baseline & Growth Row */}
                   <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Starting Bag Baseline:</span>
-                      <span className="font-bold text-slate-800">{formatINR(line.starting_bag)}</span>
+                      <span className="text-slate-500">Day Opening Bag:</span>
+                      <span className="font-extrabold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                        {formatINR(line.opening_bag || line.starting_bag)}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Starting Baseline:</span>
+                      <span className="font-semibold text-slate-700">{formatINR(line.starting_bag)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
                       <span className="text-slate-500">Net Bag Growth:</span>
                       <span className={`font-bold inline-flex items-center space-x-0.5 ${
                         isGrowthPositive ? 'text-emerald-700' : 'text-red-700'

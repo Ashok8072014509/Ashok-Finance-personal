@@ -8,9 +8,27 @@ import {
   Building2, 
   IndianRupee, 
   FileText,
-  AlertCircle
+  AlertCircle,
+  Wallet,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
+
+const formatRecordDate = (dateStr) => {
+  if (!dateStr) return 'No prior entry';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === yesterdayStr) return 'Yesterday';
+  try {
+    const [y, m, d] = dateStr.split('-');
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  } catch {
+    return dateStr;
+  }
+};
 
 export default function DailyEntryModal({ 
   isOpen, 
@@ -47,8 +65,9 @@ export default function DailyEntryModal({
   const netAmount = numIncome - numOutgoing;
 
   const activeLineSummary = linesSummary.find((l) => l.line_id === lineId);
+  const activeLineOpeningBag = Number(activeLineSummary?.opening_bag) || (Number(activeLineSummary?.starting_bag) || currentBag);
   const activeLineCurrentBag = Number(activeLineSummary?.current_bag) || currentBag;
-  const projectedBag = activeLineCurrentBag + netAmount;
+  const projectedBag = activeLineOpeningBag + netAmount;
 
 
   const handleSubmit = async (e) => {
@@ -118,6 +137,30 @@ export default function DailyEntryModal({
               <span>{error}</span>
             </div>
           )}
+
+          {/* Day Opening Bag & Rollover Status Card */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+                <Wallet className="w-4 h-4 text-red-600" />
+                <span>Day Opening Bag Capital:</span>
+              </span>
+              <span className="text-sm font-extrabold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                {formatINR(activeLineOpeningBag)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+              <span className="flex items-center space-x-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Carried from: <b className="text-slate-800">{formatRecordDate(activeLineSummary?.last_entry_date)}</b></span>
+              </span>
+              {activeLineSummary?.last_entry_date && (
+                <span>Prior Net: <b className={activeLineSummary.last_entry_net >= 0 ? 'text-emerald-700' : 'text-red-700'}>
+                  {activeLineSummary.last_entry_net >= 0 ? '+' : ''}{formatINR(activeLineSummary.last_entry_net)}
+                </b></span>
+              )}
+            </div>
+          </div>
 
           {/* Row 1: Date & Line Selection */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -207,23 +250,20 @@ export default function DailyEntryModal({
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-700 flex items-center space-x-1">
                 {netAmount >= 0 ? <TrendingUp className="w-4 h-4 text-emerald-600" /> : <TrendingDown className="w-4 h-4 text-red-600" />}
-                <span>Net Cashflow (Income - Outgoing):</span>
+                <span>Today's Net Cashflow (Income - Outgoing):</span>
               </span>
               <span className={`text-base font-black ${netAmount >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                 {netAmount >= 0 ? '+' : ''}{formatINR(netAmount)}
               </span>
             </div>
 
-            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+            <div className="mt-2.5 pt-2.5 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
               <span className="text-slate-600">
-                Action: <b className={netAmount >= 0 ? 'text-emerald-700' : 'text-red-700'}>
-                  {netAmount >= 0 ? 'Adds to Bag balance' : 'Subtracts from Bag balance'}
-                </b>
+                Opening {formatINR(activeLineOpeningBag)} {netAmount >= 0 ? '+' : '-'} {formatINR(Math.abs(netAmount))} ➔
               </span>
-              <span className="font-semibold text-slate-800">
-                New {activeLineSummary?.line_name?.replace('ASHOK FINANCE ', '') || 'Line'} Bag: <b className="text-red-700">{formatINR(projectedBag)}</b>
+              <span className="font-semibold text-slate-900">
+                Projected Closing Bag: <b className="text-red-700 font-black text-sm">{formatINR(projectedBag)}</b>
               </span>
-
             </div>
           </div>
 

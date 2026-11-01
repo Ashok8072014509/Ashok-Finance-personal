@@ -12,14 +12,36 @@ import {
   Sunset,
   Moon,
   Layers,
-  Building2
+  Building2,
+  Clock,
+  CheckCircle2,
+  History,
+  ShieldCheck,
+  PlusCircle,
+  ArrowRight
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
+
+const formatRecordDate = (dateStr) => {
+  if (!dateStr) return 'No prior entry';
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === yesterdayStr) return 'Yesterday';
+  try {
+    const [y, m, d] = dateStr.split('-');
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  } catch {
+    return dateStr;
+  }
+};
 
 export default function WelcomeBanner({ 
   bagStatus, 
   activeMode = 'all', 
-  onOpenEditBagModal 
+  onOpenEditBagModal,
+  onOpenAddModal
 }) {
   const isCombined = (activeMode === 'all');
   const lineSummary = bagStatus?.lines_summary?.find((l) => l.line_id === activeMode);
@@ -28,6 +50,10 @@ export default function WelcomeBanner({
   const startingBag = isCombined 
     ? (Number(bagStatus?.starting_bag) || 3000000) 
     : (Number(lineSummary?.starting_bag) || 1000000);
+
+  const openingBag = isCombined
+    ? (Number(bagStatus?.opening_bag) || startingBag)
+    : (Number(lineSummary?.opening_bag) || startingBag);
 
   const currentBag = isCombined 
     ? (Number(bagStatus?.current_bag) || 3000000) 
@@ -47,6 +73,25 @@ export default function WelcomeBanner({
   const todayNet = isCombined 
     ? (Number(bagStatus?.today_net) || (todayIncome - todayOutgoing)) 
     : (Number(lineSummary?.today_net) || (todayIncome - todayOutgoing));
+
+  const hasTodayEntry = (todayIncome > 0 || todayOutgoing > 0);
+
+  // Previous recorded day figures
+  const lastEntryDate = isCombined
+    ? (bagStatus?.last_entry_date || null)
+    : (lineSummary?.last_entry_date || null);
+
+  const lastEntryIncome = isCombined
+    ? (Number(bagStatus?.last_entry_income) || 0)
+    : (Number(lineSummary?.last_entry_income) || 0);
+
+  const lastEntryOutgoing = isCombined
+    ? (Number(bagStatus?.last_entry_outgoing) || 0)
+    : (Number(lineSummary?.last_entry_outgoing) || 0);
+
+  const lastEntryNet = isCombined
+    ? (Number(bagStatus?.last_entry_net) || (lastEntryIncome - lastEntryOutgoing))
+    : (Number(lineSummary?.last_entry_net) || (lastEntryIncome - lastEntryOutgoing));
 
   const monthIncome = isCombined 
     ? (Number(bagStatus?.month_income) || 0) 
@@ -153,12 +198,15 @@ export default function WelcomeBanner({
           </div>
 
           {/* Quick Bag Status Pill on Banner */}
-          <div className="bg-white/10 backdrop-blur-xs border border-white/20 rounded-xl p-3 sm:p-4 w-full md:w-auto md:min-w-[240px] flex items-center justify-between shadow-xs">
+          <div className="bg-white/10 backdrop-blur-xs border border-white/20 rounded-xl p-3 sm:p-4 w-full md:w-auto md:min-w-[260px] flex items-center justify-between shadow-xs">
             <div>
               <p className="text-[10px] sm:text-xs uppercase font-extrabold text-white/70 tracking-wider">
-                {isCombined ? 'Total Bag Capital' : 'Line Bag Capital'}
+                {isCombined ? 'Total Current Bag' : 'Line Current Bag'}
               </p>
               <p className="text-xl sm:text-2xl font-black text-white tracking-tight mt-0.5">{formatINR(currentBag)}</p>
+              <p className="text-[10px] text-white/60 font-medium mt-0.5">
+                Today's Opening: {formatINR(openingBag)}
+              </p>
             </div>
             <div className={`p-2 sm:p-2.5 rounded-xl ${netBagGrowth >= 0 ? 'bg-emerald-500/25 text-emerald-200' : 'bg-red-400/25 text-red-200'}`}>
               <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -166,29 +214,27 @@ export default function WelcomeBanner({
           </div>
         </div>
 
-        {/* Dedicated Monthly Overview Strip on Banner */}
-        <div className="relative z-10 mt-3 pt-3 border-t border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-extrabold uppercase tracking-wider text-white text-[11px] sm:text-xs">
-              {currentMonthName} (MTD Performance):
+        {/* Day Rollover Flow Strip */}
+        <div className="relative z-10 mt-4 pt-3 border-t border-white/15 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-white/10 text-white font-bold text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Day Rollover Capital Flow:</span>
+            </span>
+            <span className="text-white/90 font-medium text-[11px] sm:text-xs">
+              Opening Bag: <b className="text-white">{formatINR(openingBag)}</b> 
+              <span className="mx-1 text-white/50">➔</span>
+              Today's Net: <b className={todayNet >= 0 ? 'text-emerald-300' : 'text-red-300'}>
+                {todayNet >= 0 ? '+' : ''}{formatINR(todayNet)}
+              </b>
+              <span className="mx-1 text-white/50">➔</span>
+              Current Bag: <b className="text-white">{formatINR(currentBag)}</b>
             </span>
           </div>
-          <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-3 font-semibold text-xs text-center sm:text-left">
-            <div className="bg-white/10 px-2 py-1.5 rounded-lg text-white">
-              <span className="block text-[9px] uppercase text-slate-300 font-bold sm:inline sm:mr-1">In:</span>
-              <b className="text-emerald-300 font-extrabold text-[11px] sm:text-xs">+{formatINR(monthIncome)}</b>
-            </div>
-            <div className="bg-white/10 px-2 py-1.5 rounded-lg text-white">
-              <span className="block text-[9px] uppercase text-slate-300 font-bold sm:inline sm:mr-1">Out:</span>
-              <b className="text-red-300 font-extrabold text-[11px] sm:text-xs">-{formatINR(monthOutgoing)}</b>
-            </div>
-            <div className={`px-2 py-1.5 rounded-lg font-black border text-[11px] sm:text-xs ${
-              monthNet >= 0 ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-red-500/25 text-red-200 border-red-400/30'
-            }`}>
-              <span className="block text-[9px] uppercase text-slate-300 font-bold sm:inline sm:mr-1">Net:</span>
-              <span>{monthNet >= 0 ? '+' : ''}{formatINR(monthNet)}</span>
-            </div>
+
+          <div className="flex items-center space-x-2 text-[11px] text-white/80">
+            <Clock className="w-3.5 h-3.5 text-red-200" />
+            <span>Last recorded entry: <b className="text-white">{formatRecordDate(lastEntryDate)}</b></span>
           </div>
         </div>
       </div>
@@ -196,7 +242,7 @@ export default function WelcomeBanner({
       {/* Primary Financial Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
-        {/* Card 1: Bag Balance */}
+        {/* Card 1: Bag Balance & Opening Carryover */}
         <div className="bg-white rounded-2xl border border-red-200 p-4 sm:p-5 shadow-xs relative flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -217,82 +263,126 @@ export default function WelcomeBanner({
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Starting Bag Baseline:</span>
-            <span className="font-semibold text-slate-700">{formatINR(startingBag)}</span>
-          </div>
-
-          <div className="mt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Total Bag Growth:</span>
-            <span className={`font-bold inline-flex items-center ${netBagGrowth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-              {netBagGrowth >= 0 ? '+' : ''}{formatINR(netBagGrowth)} ({growthPercent}%)
-            </span>
+          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 font-medium">Today's Opening Bag:</span>
+              <span className="font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
+                {formatINR(openingBag)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>Starting Baseline:</span>
+              <span className="font-semibold text-slate-700">{formatINR(startingBag)}</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-500">All-Time Bag Growth:</span>
+              <span className={`font-bold inline-flex items-center ${netBagGrowth >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {netBagGrowth >= 0 ? '+' : ''}{formatINR(netBagGrowth)} ({growthPercent}%)
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Card 2: Income (Monthly Primary with Today & Total) */}
+        {/* Card 2: Previous Day Closing & Rollover (Solves User's Problem) */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  {isCombined ? "Monthly Income" : "Line Monthly Income"}
+                  Previous Record
                 </span>
-                <span className="text-[10px] text-emerald-600 font-semibold">{currentMonthName}</span>
+                <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
+                  {formatRecordDate(lastEntryDate)}
+                </span>
               </div>
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <ArrowUpRight className="w-4 h-4" />
+              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+                <History className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">
-              +{formatINR(monthIncome)}
+            <div className={`text-xl sm:text-2xl font-black tracking-tight ${
+              lastEntryNet >= 0 ? 'text-emerald-700' : 'text-rose-700'
+            }`}>
+              {lastEntryNet >= 0 ? '+' : ''}{formatINR(lastEntryNet)}
             </div>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+              Net cashflow on {formatRecordDate(lastEntryDate)}
+            </p>
           </div>
 
           <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
-            <div className="flex items-center justify-between text-slate-500">
-              <span>Today's Income:</span>
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>Collection:</span>
+              <span className="font-bold text-emerald-700">+{formatINR(lastEntryIncome)}</span>
+            </div>
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>Outgoing:</span>
+              <span className="font-bold text-red-700">-{formatINR(lastEntryOutgoing)}</span>
+            </div>
+            <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <span className="flex items-center space-x-1 text-emerald-700 font-semibold">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Carried to Today's Bag</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Today's Status & Entry Action */}
+        <div className={`rounded-2xl border p-4 sm:p-5 shadow-xs flex flex-col justify-between ${
+          hasTodayEntry 
+            ? 'bg-white border-slate-200' 
+            : 'bg-amber-50/50 border-amber-200'
+        }`}>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  Today's Activity
+                </span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block ${
+                  hasTodayEntry 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {hasTodayEntry ? '● Recorded Today' : '○ Pending Today'}
+                </span>
+              </div>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                hasTodayEntry ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-100 text-amber-700'
+              }`}>
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
+            <div className={`text-2xl sm:text-3xl font-black tracking-tight ${
+              todayNet >= 0 ? 'text-emerald-700' : 'text-red-700'
+            }`}>
+              {todayNet >= 0 ? '+' : ''}{formatINR(todayNet)}
+            </div>
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-1 text-xs">
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>Today's Collection:</span>
               <span className="font-bold text-emerald-700">+{formatINR(todayIncome)}</span>
             </div>
-            <div className="flex items-center justify-between text-slate-400 text-[11px]">
-              <span>All-Time Total:</span>
-              <span className="font-medium text-slate-600">{formatINR(totalIncome)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Outgoing (Monthly Primary with Today & Total) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  {isCombined ? "Monthly Outgoing" : "Line Monthly Outgoing"}
-                </span>
-                <span className="text-[10px] text-red-600 font-semibold">{currentMonthName}</span>
-              </div>
-              <div className="w-7 h-7 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
-                <ArrowDownRight className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight">
-              -{formatINR(monthOutgoing)}
-            </div>
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
-            <div className="flex items-center justify-between text-slate-500">
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
               <span>Today's Outgoing:</span>
               <span className="font-bold text-red-700">-{formatINR(todayOutgoing)}</span>
             </div>
-            <div className="flex items-center justify-between text-slate-400 text-[11px]">
-              <span>All-Time Total:</span>
-              <span className="font-medium text-slate-600">{formatINR(totalOutgoing)}</span>
-            </div>
+            
+            {!hasTodayEntry && onOpenAddModal && (
+              <button
+                onClick={onOpenAddModal}
+                className="w-full mt-2 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center justify-center space-x-1 shadow-2xs"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Record Today's Entry</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Card 4: Monthly Net Cashflow */}
+        {/* Card 4: Monthly Performance (MTD) */}
         <div className={`rounded-2xl border p-4 sm:p-5 shadow-xs flex flex-col justify-between ${
           monthNet >= 0 
             ? 'bg-gradient-to-br from-emerald-50/70 to-white border-emerald-200' 
@@ -320,15 +410,13 @@ export default function WelcomeBanner({
           </div>
           
           <div className="mt-3 pt-3 border-t border-slate-200/60 space-y-1 text-xs">
-            <div className="flex items-center justify-between text-slate-600">
-              <span>Today's Net:</span>
-              <span className={`font-bold ${todayNet >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                {todayNet >= 0 ? '+' : ''}{formatINR(todayNet)}
-              </span>
+            <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <span>Month In: <b className="text-emerald-700">+{formatINR(monthIncome)}</b></span>
+              <span>Out: <b className="text-red-700">-{formatINR(monthOutgoing)}</b></span>
             </div>
-            <div className="flex items-center justify-between text-slate-400 text-[11px]">
-              <span>All-Time Net:</span>
-              <span className="font-semibold text-slate-600">
+            <div className="flex items-center justify-between text-slate-400 text-[11px] pt-1 border-t border-slate-100">
+              <span>All-Time Net Flow:</span>
+              <span className="font-bold text-slate-700">
                 {totalNet >= 0 ? '+' : ''}{formatINR(totalNet)}
               </span>
             </div>
@@ -339,4 +427,5 @@ export default function WelcomeBanner({
     </div>
   );
 }
+
 

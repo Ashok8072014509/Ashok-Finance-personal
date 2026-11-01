@@ -171,6 +171,19 @@ const getLocalEntries = () => {
   return initialEntries;
 };
 
+export const mergeEntries = (remoteList = [], localList = []) => {
+  const map = new Map();
+  remoteList.forEach((e) => {
+    if (e?.id) map.set(e.id, e);
+  });
+  localList.forEach((e) => {
+    if (e?.id && !map.has(e.id)) {
+      map.set(e.id, e);
+    }
+  });
+  return Array.from(map.values()).sort((a, b) => (b.entry_date > a.entry_date ? 1 : -1));
+};
+
 const saveLocalEntries = (entries) => {
   localStorage.setItem(LOCAL_STORAGE_KEY_ENTRIES, JSON.stringify(entries));
 };
@@ -198,12 +211,21 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
       line_id: 'morning', 
       line_name: 'ASHOK FINANCE MORNING', 
       starting_bag: Number(lineStartingBags.morning) || 1000000,
+      opening_bag: Number(lineStartingBags.morning) || 1000000,
+      current_bag: Number(lineStartingBags.morning) || 1000000,
       total_income: 0, 
       total_outgoing: 0, 
       net_amount: 0, 
       today_income: 0,
       today_outgoing: 0,
       today_net: 0,
+      yesterday_income: 0,
+      yesterday_outgoing: 0,
+      yesterday_net: 0,
+      last_entry_date: null,
+      last_entry_income: 0,
+      last_entry_outgoing: 0,
+      last_entry_net: 0,
       month_income: 0,
       month_outgoing: 0,
       month_net: 0,
@@ -213,12 +235,21 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
       line_id: 'evening_1', 
       line_name: 'ASHOK FINANCE EVENING 1', 
       starting_bag: Number(lineStartingBags.evening_1) || 1000000,
+      opening_bag: Number(lineStartingBags.evening_1) || 1000000,
+      current_bag: Number(lineStartingBags.evening_1) || 1000000,
       total_income: 0, 
       total_outgoing: 0, 
       net_amount: 0, 
       today_income: 0,
       today_outgoing: 0,
       today_net: 0,
+      yesterday_income: 0,
+      yesterday_outgoing: 0,
+      yesterday_net: 0,
+      last_entry_date: null,
+      last_entry_income: 0,
+      last_entry_outgoing: 0,
+      last_entry_net: 0,
       month_income: 0,
       month_outgoing: 0,
       month_net: 0,
@@ -228,12 +259,21 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
       line_id: 'evening_2', 
       line_name: 'ASHOK FINANCE EVENING 2', 
       starting_bag: Number(lineStartingBags.evening_2) || 1000000,
+      opening_bag: Number(lineStartingBags.evening_2) || 1000000,
+      current_bag: Number(lineStartingBags.evening_2) || 1000000,
       total_income: 0, 
       total_outgoing: 0, 
       net_amount: 0, 
       today_income: 0,
       today_outgoing: 0,
       today_net: 0,
+      yesterday_income: 0,
+      yesterday_outgoing: 0,
+      yesterday_net: 0,
+      last_entry_date: null,
+      last_entry_income: 0,
+      last_entry_outgoing: 0,
+      last_entry_net: 0,
       month_income: 0,
       month_outgoing: 0,
       month_net: 0,
@@ -245,23 +285,45 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
   let totalOutgoing = 0;
   let todayIncome = 0;
   let todayOutgoing = 0;
+  let yesterdayIncome = 0;
+  let yesterdayOutgoing = 0;
   let monthIncome = 0;
   let monthOutgoing = 0;
+  let priorToTodayNet = 0;
+  const linePriorToTodayNet = { morning: 0, evening_1: 0, evening_2: 0 };
+
   const todayStr = new Date().toISOString().slice(0, 10);
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const monthPrefix = new Date().toISOString().slice(0, 7);
+
+  const overallDatesMap = {};
+  const lineDatesMap = { morning: {}, evening_1: {}, evening_2: {} };
 
   entries.forEach((e) => {
     const inc = Number(e.income) || 0;
     const out = Number(e.outgoing) || 0;
+    const net = inc - out;
     totalIncome += inc;
     totalOutgoing += out;
 
-    const isToday = (e.entry_date === todayStr);
-    const isMonth = (e.entry_date && e.entry_date.startsWith(monthPrefix));
+    const eDate = e.entry_date || '';
+    const isToday = (eDate === todayStr);
+    const isYesterday = (eDate === yesterdayStr);
+    const isMonth = (eDate && eDate.startsWith(monthPrefix));
+    const isPriorToToday = (eDate && eDate < todayStr);
+
+    if (isPriorToToday) {
+      priorToTodayNet += net;
+    }
 
     if (isToday) {
       todayIncome += inc;
       todayOutgoing += out;
+    }
+
+    if (isYesterday) {
+      yesterdayIncome += inc;
+      yesterdayOutgoing += out;
     }
 
     if (isMonth) {
@@ -269,43 +331,84 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
       monthOutgoing += out;
     }
 
+    if (eDate) {
+      if (!overallDatesMap[eDate]) overallDatesMap[eDate] = { income: 0, outgoing: 0 };
+      overallDatesMap[eDate].income += inc;
+      overallDatesMap[eDate].outgoing += out;
+    }
+
     const lid = e.line_id;
     if (linesSummary[lid]) {
       linesSummary[lid].total_income += inc;
       linesSummary[lid].total_outgoing += out;
-      linesSummary[lid].net_amount += (inc - out);
+      linesSummary[lid].net_amount += net;
       linesSummary[lid].entries_count += 1;
+
+      if (isPriorToToday) {
+        linePriorToTodayNet[lid] += net;
+      }
       if (isToday) {
         linesSummary[lid].today_income += inc;
         linesSummary[lid].today_outgoing += out;
-        linesSummary[lid].today_net += (inc - out);
+        linesSummary[lid].today_net += net;
+      }
+      if (isYesterday) {
+        linesSummary[lid].yesterday_income += inc;
+        linesSummary[lid].yesterday_outgoing += out;
+        linesSummary[lid].yesterday_net += net;
       }
       if (isMonth) {
         linesSummary[lid].month_income += inc;
         linesSummary[lid].month_outgoing += out;
-        linesSummary[lid].month_net += (inc - out);
+        linesSummary[lid].month_net += net;
+      }
+      if (eDate) {
+        if (!lineDatesMap[lid][eDate]) lineDatesMap[lid][eDate] = { income: 0, outgoing: 0 };
+        lineDatesMap[lid][eDate].income += inc;
+        lineDatesMap[lid][eDate].outgoing += out;
       }
     }
   });
 
-  // Calculate line-specific current bags and growth
+  // Determine overall last recorded day before today (or overall latest if none before today)
+  const priorDates = Object.keys(overallDatesMap).filter((d) => d < todayStr).sort().reverse();
+  const allDates = Object.keys(overallDatesMap).sort().reverse();
+  const lastActiveDate = priorDates[0] || allDates[0] || null;
+  const lastActiveIncome = lastActiveDate ? (overallDatesMap[lastActiveDate]?.income || 0) : 0;
+  const lastActiveOutgoing = lastActiveDate ? (overallDatesMap[lastActiveDate]?.outgoing || 0) : 0;
+  const lastActiveNet = lastActiveIncome - lastActiveOutgoing;
+
+  const totalStartingBag = Object.values(lineStartingBags).reduce((a, b) => a + Number(b), 0);
+  const totalOpeningBag = totalStartingBag + priorToTodayNet;
+
+  // Calculate line-specific current bags, opening bags, last days, and growth
   Object.keys(linesSummary).forEach((lid) => {
     const item = linesSummary[lid];
+    item.opening_bag = item.starting_bag + (linePriorToTodayNet[lid] || 0);
     item.current_bag = item.starting_bag + item.net_amount;
     item.growth_amount = item.current_bag - item.starting_bag;
     item.growth_percent = item.starting_bag > 0 ? Number(((item.growth_amount / item.starting_bag) * 100).toFixed(2)) : 0;
+
+    const lPriorDates = Object.keys(lineDatesMap[lid] || {}).filter((d) => d < todayStr).sort().reverse();
+    const lAllDates = Object.keys(lineDatesMap[lid] || {}).sort().reverse();
+    const lLastDate = lPriorDates[0] || lAllDates[0] || null;
+    item.last_entry_date = lLastDate;
+    item.last_entry_income = lLastDate ? (lineDatesMap[lid][lLastDate]?.income || 0) : 0;
+    item.last_entry_outgoing = lLastDate ? (lineDatesMap[lid][lLastDate]?.outgoing || 0) : 0;
+    item.last_entry_net = item.last_entry_income - item.last_entry_outgoing;
   });
 
-  const totalStartingBag = Object.values(lineStartingBags).reduce((a, b) => a + Number(b), 0);
   const totalNet = totalIncome - totalOutgoing;
   const totalCurrentBag = totalStartingBag + totalNet;
   const todayNet = todayIncome - todayOutgoing;
+  const yesterdayNet = yesterdayIncome - yesterdayOutgoing;
   const monthNet = monthIncome - monthOutgoing;
   const growthAmount = totalCurrentBag - totalStartingBag;
   const growthPercent = totalStartingBag > 0 ? Number(((growthAmount / totalStartingBag) * 100).toFixed(2)) : 0;
 
   return {
     starting_bag: totalStartingBag,
+    opening_bag: totalOpeningBag,
     current_bag: totalCurrentBag,
     total_income: totalIncome,
     total_outgoing: totalOutgoing,
@@ -313,6 +416,13 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
     today_income: todayIncome,
     today_outgoing: todayOutgoing,
     today_net: todayNet,
+    yesterday_income: yesterdayIncome,
+    yesterday_outgoing: yesterdayOutgoing,
+    yesterday_net: yesterdayNet,
+    last_entry_date: lastActiveDate,
+    last_entry_income: lastActiveIncome,
+    last_entry_outgoing: lastActiveOutgoing,
+    last_entry_net: lastActiveNet,
     month_income: monthIncome,
     month_outgoing: monthOutgoing,
     month_net: monthNet,
@@ -324,7 +434,6 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
     as_of: new Date().toISOString(),
   };
 };
-
 
 export const api = {
   getLines: async () => {
@@ -339,11 +448,13 @@ export const api = {
         const res = await fetch(`${backendUrl}/api/bootstrap`, { signal: AbortSignal.timeout(3500) });
         if (res.ok) {
           const data = await res.json();
-          if (data.entries) saveLocalEntries(data.entries);
+          const localExisting = getLocalEntries();
+          const merged = mergeEntries(data.entries || [], localExisting);
+          saveLocalEntries(merged);
           return {
             lines: data.lines || DEFAULT_LINES,
             bagStatus: data.bag_status,
-            entries: data.entries || [],
+            entries: merged,
             source: data.database_source === 'supabase' ? 'supabase' : 'backend',
           };
         }

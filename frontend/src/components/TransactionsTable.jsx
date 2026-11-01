@@ -22,12 +22,23 @@ export default function TransactionsTable({
   onOpenAddModal, 
   onOpenExportPdfModal,
   activeLineId = 'all', 
-  activeLineName = 'All Lines Combined' 
+  activeLineName = 'All Lines Combined',
+  bagStatus 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // all, today, yesterday, week, month, custom
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const hasTodayRecord = entries.some(
+    (e) => e.entry_date === todayStr && (activeLineId === 'all' || e.line_id === activeLineId)
+  );
+
+  const activeLineSummary = bagStatus?.lines_summary?.find((l) => l.line_id === activeLineId);
+  const openingBag = activeLineId === 'all' 
+    ? (bagStatus?.opening_bag || bagStatus?.starting_bag || 3000000) 
+    : (activeLineSummary?.opening_bag || activeLineSummary?.starting_bag || 1000000);
 
   // Compute filtered entries
   const filteredEntries = useMemo(() => {
@@ -164,6 +175,34 @@ export default function TransactionsTable({
             </button>
           </div>
         </div>
+
+        {/* Reassuring Day Rollover Notice */}
+        {!hasTodayRecord && (
+          <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 sm:p-4 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-start sm:items-center space-x-2.5">
+              <div className="p-2 bg-amber-500/10 text-amber-700 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-extrabold text-amber-950 text-xs sm:text-sm">
+                  Today's entry is pending for {activeLineName}
+                </p>
+                <p className="text-amber-800/80 text-[11px] mt-0.5">
+                  Yesterday's closing capital of <b className="text-amber-950">{formatINR(openingBag)}</b> is carried forward as today's opening bag. Your past records are safely preserved below.
+                </p>
+              </div>
+            </div>
+            {onOpenAddModal && (
+              <button
+                onClick={onOpenAddModal}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs transition cursor-pointer self-start sm:self-center shrink-0 shadow-xs flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Record Today's Entry</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Date Filter Pills & Search */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">

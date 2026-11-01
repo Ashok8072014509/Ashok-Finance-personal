@@ -133,6 +133,7 @@ export default function App() {
           bagStatus={bagStatus}
           activeMode={activeLineId}
           onOpenEditBagModal={() => setIsBagEditModalOpen(true)}
+          onOpenAddModal={() => setIsAddModalOpen(true)}
         />
 
         {/* Side-by-Side 3-Way Comparison Matrix (Visible in Combined Overview Mode) */}
@@ -149,6 +150,7 @@ export default function App() {
           entries={entries}
           activeLineId={activeLineId}
           activeLineName={activeLineName}
+          bagStatus={bagStatus}
           onEditEntry={handleOpenEdit}
           onDeleteEntry={handleDeleteEntry}
           onOpenAddModal={() => setIsAddModalOpen(true)}
