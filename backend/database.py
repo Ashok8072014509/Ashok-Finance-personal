@@ -405,8 +405,9 @@ class DatabaseManager:
                 entries.append(d)
             return entries
 
-    def create_entry(self, entry_date: Any, line_id: str, income: float, outgoing: float, notes: Optional[str] = None) -> Dict[str, Any]:
-        entry_id = str(uuid.uuid4())
+    def create_entry(self, entry_date: Any, line_id: str, income: float, outgoing: float, notes: Optional[str] = None, entry_id: Optional[str] = None) -> Dict[str, Any]:
+        if not entry_id:
+            entry_id = str(uuid.uuid4())
         now_str = datetime.utcnow().isoformat()
         net_amount = round(float(income) - float(outgoing), 2)
         date_str = entry_date.isoformat() if isinstance(entry_date, date) else str(entry_date)
@@ -552,14 +553,19 @@ class DatabaseManager:
         total_outgoing = 0.0
         today_income = 0.0
         today_outgoing = 0.0
-        today_str = date.today().isoformat()
-        yesterday_str = (date.today() - timedelta(days=1)).isoformat()
+
+        # Calculate calendar date in Indian Standard Time (IST, UTC+5:30)
+        from datetime import timezone
+        IST = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(IST)
+        today_str = now_ist.date().isoformat()
+        yesterday_str = (now_ist.date() - timedelta(days=1)).isoformat()
         yesterday_income = 0.0
         yesterday_outgoing = 0.0
 
         month_income = 0.0
         month_outgoing = 0.0
-        month_prefix = date.today().strftime("%Y-%m")
+        month_prefix = now_ist.strftime("%Y-%m")
 
         lines = self.get_lines()
         lines_summary = {
@@ -658,9 +664,9 @@ class DatabaseManager:
                     line_dates_map[lid][e_date]["income"] += inc
                     line_dates_map[lid][e_date]["outgoing"] += out
 
-        # Find overall last recorded date prior to today (or overall latest if none prior)
+        # Find overall last recorded date strictly prior to today
         prior_dates = sorted([d for d in overall_dates_map.keys() if d < today_str], reverse=True)
-        last_date = prior_dates[0] if prior_dates else (sorted(overall_dates_map.keys(), reverse=True)[0] if overall_dates_map else None)
+        last_date = prior_dates[0] if prior_dates else None
         last_entry_income = overall_dates_map[last_date]["income"] if last_date else 0.0
         last_entry_outgoing = overall_dates_map[last_date]["outgoing"] if last_date else 0.0
         last_entry_net = last_entry_income - last_entry_outgoing
@@ -685,10 +691,10 @@ class DatabaseManager:
             summary["yesterday_outgoing"] = round(summary["yesterday_outgoing"], 2)
             summary["yesterday_net"] = round(summary["yesterday_net"], 2)
 
-            # Determine line's last recorded date prior to today
+            # Determine line's last recorded date strictly prior to today
             l_dates = line_dates_map[lid]
             l_prior = sorted([d for d in l_dates.keys() if d < today_str], reverse=True)
-            l_last_date = l_prior[0] if l_prior else (sorted(l_dates.keys(), reverse=True)[0] if l_dates else None)
+            l_last_date = l_prior[0] if l_prior else None
             summary["last_entry_date"] = l_last_date
             l_inc = l_dates[l_last_date]["income"] if l_last_date else 0.0
             l_out = l_dates[l_last_date]["outgoing"] if l_last_date else 0.0

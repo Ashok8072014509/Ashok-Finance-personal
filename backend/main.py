@@ -98,7 +98,8 @@ def create_entry(payload: DailyEntryCreate):
         line_id=payload.line_id,
         income=payload.income,
         outgoing=payload.outgoing,
-        notes=payload.notes
+        notes=payload.notes,
+        entry_id=payload.id
     )
     status = db.get_bag_status()
     return {

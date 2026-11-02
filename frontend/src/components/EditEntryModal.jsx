@@ -30,7 +30,7 @@ export default function EditEntryModal({
 
   useEffect(() => {
     if (entry && isOpen) {
-      setEntryDate(entry.entry_date || '');
+      setEntryDate(entry.entry_date ? String(entry.entry_date).slice(0, 10) : '');
       setLineId(entry.line_id || '');
       setIncome(entry.income !== undefined ? String(entry.income) : '');
       setOutgoing(entry.outgoing !== undefined ? String(entry.outgoing) : '');

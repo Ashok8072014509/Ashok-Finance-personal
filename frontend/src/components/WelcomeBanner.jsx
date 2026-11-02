@@ -21,16 +21,17 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
+import { getLocalDateStr, getYesterdayDateStr } from '../services/api';
 
 const formatRecordDate = (dateStr) => {
   if (!dateStr) return 'No prior entry';
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const todayStr = getLocalDateStr();
+  const yesterdayStr = getYesterdayDateStr();
   if (dateStr === todayStr) return 'Today';
   if (dateStr === yesterdayStr) return 'Yesterday';
   try {
     const [y, m, d] = dateStr.split('-');
-    const dt = new Date(y, m - 1, d);
+    const dt = new Date(Number(y), Number(m) - 1, Number(d));
     return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   } catch {
     return dateStr;
@@ -116,6 +117,9 @@ export default function WelcomeBanner({
   const totalNet = isCombined 
     ? (Number(bagStatus?.total_net) || (totalIncome - totalOutgoing)) 
     : (Number(lineSummary?.net_amount) || (totalIncome - totalOutgoing));
+
+  const todayStr = getLocalDateStr();
+  const yesterdayStr = getYesterdayDateStr();
 
   const todayDateFormatted = new Date().toLocaleDateString('en-IN', {
     weekday: 'long',
@@ -283,16 +287,22 @@ export default function WelcomeBanner({
           </div>
         </div>
 
-        {/* Card 2: Previous Day Closing & Rollover (Solves User's Problem) */}
+        {/* Card 2: Previous Day Closing & Rollover */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  Previous Record
+                  {lastEntryDate === yesterdayStr ? "Yesterday's Record" : "Previous Record"}
                 </span>
-                <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md">
-                  {formatRecordDate(lastEntryDate)}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md inline-block ${
+                  lastEntryDate === yesterdayStr 
+                    ? 'text-amber-800 bg-amber-100 border border-amber-300' 
+                    : lastEntryDate 
+                    ? 'text-slate-700 bg-slate-100 border border-slate-200' 
+                    : 'text-slate-400 bg-slate-50 border border-slate-200'
+                }`}>
+                  {lastEntryDate ? formatRecordDate(lastEntryDate) : 'No prior entry'}
                 </span>
               </div>
               <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
@@ -302,10 +312,10 @@ export default function WelcomeBanner({
             <div className={`text-xl sm:text-2xl font-black tracking-tight ${
               lastEntryNet >= 0 ? 'text-emerald-700' : 'text-rose-700'
             }`}>
-              {lastEntryNet >= 0 ? '+' : ''}{formatINR(lastEntryNet)}
+              {lastEntryDate ? `${lastEntryNet >= 0 ? '+' : ''}${formatINR(lastEntryNet)}` : '₹0.00'}
             </div>
             <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-              Net cashflow on {formatRecordDate(lastEntryDate)}
+              {lastEntryDate ? `Net cashflow on ${formatRecordDate(lastEntryDate)}` : 'No prior entries recorded'}
             </p>
           </div>
 

@@ -16,7 +16,7 @@ class DailyEntryBase(BaseModel):
     notes: Optional[str] = None
 
 class DailyEntryCreate(DailyEntryBase):
-    pass
+    id: Optional[str] = None
 
 class DailyEntryUpdate(BaseModel):
     entry_date: Optional[date] = None

@@ -14,16 +14,17 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
+import { getLocalDateStr, getYesterdayDateStr } from '../services/api';
 
 const formatRecordDate = (dateStr) => {
   if (!dateStr) return 'No prior entry';
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const todayStr = getLocalDateStr();
+  const yesterdayStr = getYesterdayDateStr();
   if (dateStr === todayStr) return 'Today';
   if (dateStr === yesterdayStr) return 'Yesterday';
   try {
     const [y, m, d] = dateStr.split('-');
-    const dt = new Date(y, m - 1, d);
+    const dt = new Date(Number(y), Number(m) - 1, Number(d));
     return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   } catch {
     return dateStr;
@@ -39,7 +40,7 @@ export default function DailyEntryModal({
   defaultLineId = 'morning', 
   currentBag = 1000000 
 }) {
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(getLocalDateStr());
   const [lineId, setLineId] = useState(defaultLineId !== 'all' ? defaultLineId : 'morning');
   const [income, setIncome] = useState('');
   const [outgoing, setOutgoing] = useState('');
@@ -49,7 +50,7 @@ export default function DailyEntryModal({
 
   useEffect(() => {
     if (isOpen) {
-      setEntryDate(new Date().toISOString().slice(0, 10));
+      setEntryDate(getLocalDateStr());
       setLineId(defaultLineId !== 'all' ? defaultLineId : 'morning');
       setIncome('');
       setOutgoing('');

@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
+import { getLocalDateStr, getYesterdayDateStr, normalizeDateStr } from '../services/api';
 
 export default function TransactionsTable({ 
   entries = [], 
@@ -30,9 +31,10 @@ export default function TransactionsTable({
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = getLocalDateStr();
+  const yesterdayDate = getYesterdayDateStr();
   const hasTodayRecord = entries.some(
-    (e) => e.entry_date === todayStr && (activeLineId === 'all' || e.line_id === activeLineId)
+    (e) => normalizeDateStr(e.entry_date) === todayStr && (activeLineId === 'all' || e.line_id === activeLineId)
   );
 
   const activeLineSummary = bagStatus?.lines_summary?.find((l) => l.line_id === activeLineId);
@@ -50,25 +52,29 @@ export default function TransactionsTable({
     }
 
     // Filter by date range
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getLocalDateStr();
     const thisMonthPrefix = todayStr.slice(0, 7);
-    const yesterdayDate = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterdayDate = getYesterdayDateStr();
 
     if (dateFilter === 'today') {
-      result = result.filter((e) => e.entry_date === todayStr);
+      result = result.filter((e) => normalizeDateStr(e.entry_date) === todayStr);
     } else if (dateFilter === 'yesterday') {
-      result = result.filter((e) => e.entry_date === yesterdayDate);
+      result = result.filter((e) => normalizeDateStr(e.entry_date) === yesterdayDate);
     } else if (dateFilter === 'this_month') {
-      result = result.filter((e) => e.entry_date && e.entry_date.startsWith(thisMonthPrefix));
+      result = result.filter((e) => normalizeDateStr(e.entry_date).startsWith(thisMonthPrefix));
     } else if (dateFilter === 'week') {
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
-      result = result.filter((e) => e.entry_date >= weekAgo && e.entry_date <= todayStr);
+      const now = new Date();
+      const weekAgoDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      const weekAgo = getLocalDateStr(weekAgoDate);
+      result = result.filter((e) => normalizeDateStr(e.entry_date) >= weekAgo && normalizeDateStr(e.entry_date) <= todayStr);
     } else if (dateFilter === 'month') {
-      const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-      result = result.filter((e) => e.entry_date >= monthAgo && e.entry_date <= todayStr);
+      const now = new Date();
+      const monthAgoDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+      const monthAgo = getLocalDateStr(monthAgoDate);
+      result = result.filter((e) => normalizeDateStr(e.entry_date) >= monthAgo && normalizeDateStr(e.entry_date) <= todayStr);
     } else if (dateFilter === 'custom') {
-      if (customStart) result = result.filter((e) => e.entry_date >= customStart);
-      if (customEnd) result = result.filter((e) => e.entry_date <= customEnd);
+      if (customStart) result = result.filter((e) => normalizeDateStr(e.entry_date) >= customStart);
+      if (customEnd) result = result.filter((e) => normalizeDateStr(e.entry_date) <= customEnd);
     }
 
     // Filter by search query
