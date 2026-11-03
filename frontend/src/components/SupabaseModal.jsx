@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  X, 
-  Database, 
-  Key, 
-  Link, 
-  CheckCircle, 
-  Copy, 
-  Check, 
+import {
+  X,
+  Database,
+  Key,
+  Link,
+  CheckCircle,
+  Copy,
+  Check,
   ExternalLink,
   Server,
   Cloud,
@@ -16,10 +16,10 @@ import {
   RotateCw,
   HardDrive
 } from 'lucide-react';
-import { 
-  getSupabaseConfig, 
-  saveSupabaseConfig, 
-  getBackendUrl, 
+import {
+  getSupabaseConfig,
+  saveSupabaseConfig,
+  getBackendUrl,
   saveBackendUrl,
   api
 } from '../services/api';
@@ -143,7 +143,7 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-2xs overflow-y-auto">
       <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-xl w-full border border-red-100 shadow-2xl overflow-hidden my-0 sm:my-8 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in duration-200">
-        
+
         {/* Mobile Drag Indicator */}
         <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-2 sm:hidden" />
 
@@ -198,9 +198,8 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
               <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-slate-400 font-medium">Render Backend:</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    healthStatus?.backendOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
-                  }`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${healthStatus?.backendOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'
+                    }`}>
                     {healthStatus?.backendOnline ? '● Online' : '● Offline / Sleeping'}
                   </span>
                 </div>
@@ -218,9 +217,8 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
               <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-slate-400 font-medium">Supabase Cloud:</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    healthStatus?.supabaseOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
-                  }`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${healthStatus?.supabaseOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
                     {healthStatus?.supabaseOnline ? '● Active' : '● Paused / Standby'}
                   </span>
                 </div>
