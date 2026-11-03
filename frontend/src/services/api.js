@@ -137,69 +137,41 @@ export const getYesterdayDateStr = (d = new Date()) => {
 
 export const normalizeDateStr = (val) => {
   if (!val) return getLocalDateStr();
-  if (typeof val === 'string') {
-    return val.slice(0, 10);
+  if (val instanceof Date) return getLocalDateStr(val);
+  const s = String(val).trim();
+  // Check for ISO format: YYYY-MM-DD
+  if (/^\d{4}-\d{1,2}-\d{1,2}/.test(s)) {
+    const parts = s.split('T')[0].split('-');
+    const y = parts[0];
+    const m = parts[1].padStart(2, '0');
+    const d = parts[2].padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
-  if (val instanceof Date) {
-    return getLocalDateStr(val);
+  // Check for Indian / UK format: D/M/YYYY or DD/MM/YYYY or D-M-YYYY or DD-MM-YYYY
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  if (m) {
+    const day = m[1].padStart(2, '0');
+    const month = m[2].padStart(2, '0');
+    const year = m[3];
+    return `${year}-${month}-${day}`;
   }
-  return String(val).slice(0, 10);
+  return s.slice(0, 10);
 };
 
-const getLocalEntries = () => {
+export const getLocalEntries = () => {
   const raw = safeStorage.getItem(LOCAL_STORAGE_KEY_ENTRIES);
   if (raw) {
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Filter out any legacy dummy records so they never pollute real accounting data
+        return parsed.filter((e) => e && e.id && !String(e.id).startsWith('demo-'));
+      }
     } catch {
       // fallback
     }
   }
-
-  // Pre-seed sample realistic records for demonstration
-  const today = getLocalDateStr();
-  const yesterday = getYesterdayDateStr();
-
-  const initialEntries = [
-    {
-      id: 'demo-1',
-      entry_date: today,
-      line_id: 'morning',
-      line_name: 'ASHOK FINANCE MORNING',
-      income: 65000,
-      outgoing: 25000,
-      net_amount: 40000,
-      notes: 'Morning collection & fresh loan disbursement',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'demo-2',
-      entry_date: today,
-      line_id: 'evening_1',
-      line_name: 'ASHOK FINANCE EVENING 1',
-      income: 42000,
-      outgoing: 18000,
-      net_amount: 24000,
-      notes: 'Market line daily collection',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: 'demo-3',
-      entry_date: yesterday,
-      line_id: 'evening_2',
-      line_name: 'ASHOK FINANCE EVENING 2',
-      income: 38000,
-      outgoing: 50000,
-      net_amount: -12000,
-      notes: 'Emergency merchant loan disbursement',
-      created_at: new Date(Date.now() - 86400000).toISOString(),
-      updated_at: new Date(Date.now() - 86400000).toISOString(),
-    },
-  ];
-  safeStorage.setItem(LOCAL_STORAGE_KEY_ENTRIES, JSON.stringify(initialEntries));
-  return initialEntries;
+  return [];
 };
 
 export const mergeEntries = (remoteList = [], localList = []) => {
@@ -504,17 +476,30 @@ export const api = {
     return DEFAULT_LINES;
   },
 
-  // High-speed single roundtrip initialization
+  // High-speed single roundtrip initialization with automatic database seeding & recovery
   getBootstrap: async () => {
     let bootstrapEntries = null;
     let lines = DEFAULT_LINES;
     let source = 'local';
     const backendUrl = getBackendUrl();
+    const localExisting = getLocalEntries();
 
-    // 1. Try FastAPI Backend
+    // 1. Try FastAPI Backend (with automatic bidirectional sync)
     if (backendUrl) {
       try {
-        const res = await fetch(`${backendUrl}/api/bootstrap`, { signal: AbortSignal.timeout(3500) });
+        let res;
+        // If we have local entries, send them to /api/entries/sync so Render's database is immediately seeded
+        if (localExisting && localExisting.length > 0) {
+          res = await fetch(`${backendUrl}/api/entries/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entries: localExisting }),
+            signal: AbortSignal.timeout(5000),
+          });
+        } else {
+          res = await fetch(`${backendUrl}/api/bootstrap`, { signal: AbortSignal.timeout(5000) });
+        }
+
         if (res.ok) {
           const data = await res.json();
           lines = data.lines || DEFAULT_LINES;
@@ -522,15 +507,15 @@ export const api = {
           bootstrapEntries = data.entries || [];
         }
       } catch {
-        // Backend offline, fallback below
+        // Backend offline or cold-start, continue gracefully
       }
     }
 
-    // 2. If Backend was offline, try Supabase if configured
-    if (!bootstrapEntries && supabase) {
+    // 2. If Backend was offline or returned nothing, try Supabase if configured
+    if ((!bootstrapEntries || bootstrapEntries.length === 0) && supabase) {
       try {
         const { data: eData } = await supabase.from('daily_entries').select('*').order('entry_date', { ascending: false });
-        if (eData) {
+        if (eData && eData.length > 0) {
           const lineMap = Object.fromEntries(DEFAULT_LINES.map((l) => [l.id, l.name]));
           bootstrapEntries = eData.map((e) => ({
             ...e,
@@ -544,8 +529,7 @@ export const api = {
       }
     }
 
-    // 3. Merge remote entries with local storage (protects unsynced additions)
-    const localExisting = getLocalEntries();
+    // 3. Merge remote entries with local storage (NEVER loses any entry)
     const merged = mergeEntries(bootstrapEntries || [], localExisting);
     saveLocalEntries(merged);
 
@@ -815,9 +799,10 @@ export const api = {
         if (res.ok) {
           const resData = await res.json();
           if (resData?.entry?.id && resData.entry.id !== newRecord.id) {
+            const tempId = newRecord.id;
             newRecord.id = resData.entry.id;
             const currentList = getLocalEntries();
-            const remapped = currentList.map(e => e.id === newRecord.id ? { ...e, id: resData.entry.id } : e);
+            const remapped = currentList.map((e) => (e.id === tempId ? { ...e, id: resData.entry.id } : e));
             saveLocalEntries(remapped);
           }
         }
@@ -932,6 +917,120 @@ export const api = {
     }
 
     return { bagStatus: immediateBagStatus, entries: updated };
+  },
+
+  // Bidirectional synchronization pushing all local records and pulling remote records
+  syncAllEntries: async () => {
+    const localEntries = getLocalEntries();
+    const backendUrl = getBackendUrl();
+    let remoteEntries = [];
+    let source = 'local';
+    let dbStatusMessage = '';
+
+    // 1. Sync to backend
+    if (backendUrl) {
+      try {
+        const res = await fetch(`${backendUrl}/api/entries/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entries: localEntries }),
+          signal: AbortSignal.timeout(6000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          remoteEntries = data.entries || [];
+          source = data.database_source === 'supabase' ? 'supabase' : 'backend';
+          dbStatusMessage = data.database_status_message || '';
+        }
+      } catch (e) {
+        console.warn('Backend sync error:', e);
+      }
+    }
+
+    // 2. Sync to Supabase
+    if (supabase) {
+      try {
+        for (const e of localEntries) {
+          await supabase.from('daily_entries').upsert({
+            id: e.id,
+            entry_date: normalizeDateStr(e.entry_date),
+            line_id: e.line_id,
+            income: Number(e.income) || 0,
+            outgoing: Number(e.outgoing) || 0,
+            net_amount: (Number(e.income) || 0) - (Number(e.outgoing) || 0),
+            notes: e.notes || '',
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (e) {
+        console.warn('Supabase sync error:', e);
+      }
+    }
+
+    const merged = mergeEntries(remoteEntries, localEntries);
+    saveLocalEntries(merged);
+    const settings = getLocalSettings();
+    const bagStatus = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, merged);
+
+    return { 
+      entries: merged, 
+      bagStatus, 
+      source, 
+      total: merged.length,
+      dbStatusMessage 
+    };
+  },
+
+  // Live connectivity health check
+  checkHealth: async () => {
+    const backendUrl = getBackendUrl();
+    const result = {
+      backendOnline: false,
+      backendUrl,
+      dbSource: 'local',
+      dbStatusMessage: 'Offline',
+      supabaseOnline: false,
+      supabaseUrl: getSupabaseConfig().url,
+      localEntriesCount: getLocalEntries().length,
+    };
+
+    if (backendUrl) {
+      try {
+        const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const data = await res.json();
+          result.backendOnline = true;
+          result.dbSource = data.database_source;
+          result.dbStatusMessage = data.database_status_message;
+          result.backendTotalEntries = data.total_entries;
+        }
+      } catch {
+        result.backendOnline = false;
+      }
+    }
+
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('lines').select('id').limit(1);
+        result.supabaseOnline = !error;
+      } catch {
+        result.supabaseOnline = false;
+      }
+    }
+
+    return result;
+  },
+
+  // Reconnect database
+  reconnectDatabase: async () => {
+    const backendUrl = getBackendUrl();
+    if (!backendUrl) return { success: false, message: 'No backend URL' };
+    try {
+      const res = await fetch(`${backendUrl}/api/database/reconnect`, { method: 'POST' });
+      return await res.json();
+    } catch (e) {
+      return { success: false, message: String(e) };
+    }
   },
 
   // Direct backend PDF report stream

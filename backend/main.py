@@ -1,9 +1,10 @@
 import os
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from models import (
     DailyEntryCreate,
@@ -52,7 +53,47 @@ def get_bootstrap_data():
         "lines": lines,
         "bag_status": status,
         "entries": entries,
-        "database_source": status.get("database_source", "sqlite")
+        "database_source": status.get("database_source", "sqlite"),
+        "database_status_message": db.db_status_message
+    }
+
+class BatchSyncPayload(BaseModel):
+    entries: List[Dict[str, Any]] = []
+
+@app.post("/api/entries/sync")
+def sync_entries_bidirectional(payload: BatchSyncPayload):
+    """Bidirectional sync: receives entries, upserts them into DB, and returns all entries & bag status"""
+    all_entries = db.batch_upsert_entries(payload.entries)
+    line_bags = db.get_line_starting_bags()
+    status = db.get_bag_status(all_entries=all_entries, line_bags=line_bags)
+    return {
+        "message": f"Successfully synchronized {len(payload.entries)} entries with database",
+        "entries": all_entries,
+        "bag_status": status,
+        "database_source": status.get("database_source", "sqlite"),
+        "database_status_message": db.db_status_message,
+        "synced_count": len(payload.entries),
+        "total_count": len(all_entries)
+    }
+
+@app.get("/api/health")
+def health_diagnostics():
+    """Detailed health check and database status"""
+    return {
+        "status": "online",
+        "database_source": "supabase" if db.use_postgres else "sqlite",
+        "database_status_message": db.db_status_message,
+        "total_entries": len(db.get_entries())
+    }
+
+@app.post("/api/database/reconnect")
+def reconnect_database_route():
+    """Attempts to reconnect to PostgreSQL pool (useful after Supabase project unpause)"""
+    success = db.reconnect_postgres()
+    return {
+        "success": success,
+        "database_source": "supabase" if db.use_postgres else "sqlite",
+        "message": db.db_status_message
     }
 
 # ----------------- LINES -----------------

@@ -1,0 +1,12 @@
+{
+  "name": "ashok-finance-personal",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Ashok Finance - Daily Line Ledger & Capital Management",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview"
+  }
+}

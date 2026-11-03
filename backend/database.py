@@ -98,6 +98,44 @@ class DatabaseManager:
             self.db_status_message = f"SQLite Local Fallback ({e})"
             print(f"[Database] PostgreSQL connection failed: {e}. Operating with SQLite local storage.")
 
+    def reconnect_postgres(self, db_url: Optional[str] = None) -> bool:
+        """Attempt to reconnect to PostgreSQL (e.g., after Supabase project is unpaused)"""
+        try:
+            import psycopg2
+            from psycopg2 import pool
+
+            url = db_url or DATABASE_URL or os.getenv("SUPABASE_POSTGRES_URL")
+            if url:
+                if "sslmode=" not in url:
+                    sep = "&" if "?" in url else "?"
+                    url = f"{url}{sep}sslmode=require"
+                new_pool = psycopg2.pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=url, connect_timeout=6)
+            else:
+                new_pool = psycopg2.pool.ThreadedConnectionPool(
+                    minconn=1,
+                    maxconn=10,
+                    host=PG_HOST,
+                    user=PG_USER,
+                    password=PG_PASSWORD,
+                    port=PG_PORT,
+                    dbname=PG_NAME,
+                    sslmode="require",
+                    connect_timeout=6
+                )
+            # test
+            conn = new_pool.getconn()
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            new_pool.putconn(conn)
+
+            self.pg_pool = new_pool
+            self.use_postgres = True
+            self.db_status_message = f"Supabase PostgreSQL Live ({PG_HOST})"
+            return True
+        except Exception as e:
+            self.db_status_message = f"SQLite Local Fallback ({e})"
+            return False
+
     @contextmanager
     def _get_pg_connection(self):
         if not self.pg_pool:
@@ -535,6 +573,77 @@ class DatabaseManager:
                 deleted = True
 
         return deleted
+
+    def batch_upsert_entries(self, entries_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Bidirectionally synchronize multiple entries into PostgreSQL and SQLite. Never loses historical data."""
+        if not entries_list:
+            return self.get_entries()
+
+        now_str = datetime.utcnow().isoformat()
+
+        # 1. Upsert into Supabase PostgreSQL if active
+        if self.use_postgres:
+            try:
+                with self._get_pg_connection() as conn:
+                    with conn.cursor() as cur:
+                        for e in entries_list:
+                            eid = str(e.get("id") or uuid.uuid4())
+                            raw_date = str(e.get("entry_date", ""))[:10]
+                            # Normalize date format
+                            if "/" in raw_date:
+                                parts = raw_date.split("/")
+                                if len(parts) == 3:
+                                    raw_date = f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+                            lid = str(e.get("line_id", "morning"))
+                            inc = float(e.get("income", 0.0))
+                            out = float(e.get("outgoing", 0.0))
+                            net = round(inc - out, 2)
+                            notes = str(e.get("notes") or "").strip()
+                            cur.execute("""
+                                INSERT INTO public.daily_entries (id, entry_date, line_id, income, outgoing, net_amount, notes, created_at, updated_at)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                                ON CONFLICT (id) DO UPDATE SET
+                                    entry_date = EXCLUDED.entry_date,
+                                    line_id = EXCLUDED.line_id,
+                                    income = EXCLUDED.income,
+                                    outgoing = EXCLUDED.outgoing,
+                                    net_amount = EXCLUDED.net_amount,
+                                    notes = EXCLUDED.notes,
+                                    updated_at = NOW()
+                            """, (eid, raw_date, lid, inc, out, net, notes))
+                    conn.commit()
+            except Exception as e:
+                print(f"[Supabase PG error in batch_upsert_entries]: {e}")
+
+        # 2. Upsert into SQLite local storage
+        with self._get_sqlite_connection() as conn:
+            for e in entries_list:
+                eid = str(e.get("id") or uuid.uuid4())
+                raw_date = str(e.get("entry_date", ""))[:10]
+                if "/" in raw_date:
+                    parts = raw_date.split("/")
+                    if len(parts) == 3:
+                        raw_date = f"{parts[2]}-{parts[1].zfill(2)}-{parts[0].zfill(2)}"
+                lid = str(e.get("line_id", "morning"))
+                inc = float(e.get("income", 0.0))
+                out = float(e.get("outgoing", 0.0))
+                net = round(inc - out, 2)
+                notes = str(e.get("notes") or "").strip()
+                conn.execute("""
+                    INSERT INTO daily_entries (id, entry_date, line_id, income, outgoing, net_amount, notes, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        entry_date = excluded.entry_date,
+                        line_id = excluded.line_id,
+                        income = excluded.income,
+                        outgoing = excluded.outgoing,
+                        net_amount = excluded.net_amount,
+                        notes = excluded.notes,
+                        updated_at = excluded.updated_at
+                """, (eid, raw_date, lid, inc, out, net, notes, now_str, now_str))
+            conn.commit()
+
+        return self.get_entries()
 
     # ------------------ STATUS CALCULATIONS ------------------
     def get_bag_status(
