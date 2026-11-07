@@ -14,13 +14,20 @@ import {
   Activity,
   AlertTriangle,
   RotateCw,
-  HardDrive
+  HardDrive,
+  Download,
+  Upload,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 import {
   getSupabaseConfig,
   saveSupabaseConfig,
   getBackendUrl,
   saveBackendUrl,
+  getLocalEntries,
   api
 } from '../services/api';
 
@@ -88,9 +95,15 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
   const [healthStatus, setHealthStatus] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [storedEntries, setStoredEntries] = useState([]);
+  const [showInspector, setShowInspector] = useState(false);
+  const [showBulkRestore, setShowBulkRestore] = useState(false);
+  const [bulkInputJson, setBulkInputJson] = useState('');
+  const [importMessage, setImportMessage] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
+      setStoredEntries(getLocalEntries());
       handleTestConnectivity();
     }
   }, [isOpen]);
@@ -102,6 +115,7 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
     try {
       const res = await api.checkHealth();
       setHealthStatus(res);
+      setStoredEntries(getLocalEntries());
     } catch {
       setHealthStatus({ backendOnline: false, supabaseOnline: false });
     } finally {
@@ -115,11 +129,44 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
     try {
       const res = await api.syncAllEntries();
       setSyncResult(`Successfully synced ${res.total} records across browser & database!`);
+      setStoredEntries(getLocalEntries());
       if (onRefresh) onRefresh();
     } catch (err) {
       setSyncResult(`Sync warning: ${err.message || 'Check connection'}`);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleExportBackup = () => {
+    api.exportBackupJson();
+  };
+
+  const handleBulkImport = async () => {
+    setImportMessage(null);
+    try {
+      let parsed;
+      try {
+        parsed = JSON.parse(bulkInputJson);
+        if (parsed.entries && Array.isArray(parsed.entries)) {
+          parsed = parsed.entries;
+        }
+      } catch (e) {
+        setImportMessage({ error: 'Please enter valid JSON array of records (e.g. [{"entry_date": "2026-11-02", "line_id": "morning", "income": 50000, "outgoing": 20000}])' });
+        return;
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setImportMessage({ error: 'JSON array cannot be empty' });
+        return;
+      }
+      const res = await api.bulkImportEntries(parsed);
+      setImportMessage({ success: `Successfully imported & synced ${parsed.length} entries to database!` });
+      setStoredEntries(getLocalEntries());
+      setBulkInputJson('');
+      if (onRefresh) onRefresh();
+      setTimeout(() => setShowBulkRestore(false), 2000);
+    } catch (err) {
+      setImportMessage({ error: err.message || 'Import failed' });
     }
   };
 
@@ -233,25 +280,130 @@ export default function SupabaseModal({ isOpen, onClose, onRefresh }) {
             </div>
 
             {/* Offline & Rollover Safety Guarantee */}
-            <div className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <HardDrive className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <p className="text-xs font-bold text-white">Browser Safe Persistence Active</p>
-                  <p className="text-[10px] text-slate-400">
-                    {healthStatus?.localEntriesCount || 0} financial ledger records safely preserved locally
-                  </p>
+            <div className="bg-white/5 rounded-xl p-3 border border-white/10 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <HardDrive className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-white">Browser Safe Persistence Active</p>
+                    <p className="text-[10px] text-slate-400">
+                      {storedEntries.length} financial ledger records safely preserved locally
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowInspector(!showInspector)}
+                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>{showInspector ? 'Hide Records' : `View (${storedEntries.length})`}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportBackup}
+                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-emerald-300 text-[11px] font-semibold transition flex items-center space-x-1 cursor-pointer"
+                    title="Export JSON backup to disk"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Backup JSON</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkRestore(!showBulkRestore)}
+                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-amber-300 text-[11px] font-semibold transition flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Restore / Bulk</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleForceSync}
+                    disabled={isSyncing}
+                    className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center space-x-1 cursor-pointer shadow-sm"
+                  >
+                    <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isSyncing ? 'Syncing...' : 'Sync All'}</span>
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleForceSync}
-                disabled={isSyncing}
-                className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
-              >
-                <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync All'}</span>
-              </button>
+
+              {/* Expandable Stored Records Inspector */}
+              {showInspector && (
+                <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold px-1">
+                    <span>Local Records in Browser Memory ({storedEntries.length}):</span>
+                  </div>
+                  {storedEntries.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic p-2 bg-black/20 rounded-lg">No records stored locally yet.</p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-black/30 divide-y divide-white/5 text-[11px]">
+                      {storedEntries.map((e, idx) => (
+                        <div key={e.id || idx} className="p-2 flex items-center justify-between hover:bg-white/5">
+                          <div>
+                            <span className="font-bold text-white mr-2">{e.entry_date}</span>
+                            <span className="text-slate-400 text-[10px] uppercase font-mono mr-2">{e.line_id}</span>
+                            {e.notes && <span className="text-slate-500 text-[10px] italic">"{e.notes}"</span>}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-emerald-400 font-semibold mr-2">+₹{Number(e.income || 0).toLocaleString('en-IN')}</span>
+                            <span className="text-rose-400 font-semibold mr-2">-₹{Number(e.outgoing || 0).toLocaleString('en-IN')}</span>
+                            <span className={`font-bold ${Number(e.net_amount || 0) >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                              {Number(e.net_amount || 0) >= 0 ? '+' : ''}₹{Number(e.net_amount || 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Expandable Bulk Add / Restore Panel */}
+              {showBulkRestore && (
+                <div className="mt-2 pt-2 border-t border-white/10 space-y-2 animate-in fade-in duration-150">
+                  <div className="text-[11px] text-amber-200 font-bold flex items-center justify-between">
+                    <span>Paste Missing Records or Backup JSON to Restore:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkRestore(false)}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={bulkInputJson}
+                    onChange={(e) => setBulkInputJson(e.target.value)}
+                    placeholder='[&#10;  { "entry_date": "2026-11-02", "line_id": "morning", "income": 50000, "outgoing": 20000, "notes": "Nov 2 collection" },&#10;  { "entry_date": "2026-11-03", "line_id": "evening_1", "income": 40000, "outgoing": 15000 }&#10;]'
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-white/10 bg-black/40 text-emerald-300 font-mono focus:border-red-400 outline-none"
+                  />
+                  {importMessage && (
+                    <p className={`text-xs p-2 rounded-lg font-medium ${importMessage.success ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
+                      {importMessage.success || importMessage.error}
+                    </p>
+                  )}
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkRestore(false)}
+                      className="px-2.5 py-1 text-xs text-slate-300 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkImport}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>Import & Sync to Database</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {syncResult && (

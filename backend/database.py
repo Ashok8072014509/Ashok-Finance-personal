@@ -7,13 +7,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Supabase Credentials & PostgreSQL Configuration
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ccvrmvauxkgbydecnfnq.supabase.co")
+# Supabase Credentials & IPv4 Pooler Configuration (Mumbai ap-south-1)
+SUPABASE_PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "ccvrmvauxkgbydecnfnq")
+SUPABASE_URL = os.getenv("SUPABASE_URL", f"https://{SUPABASE_PROJECT_REF}.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-PG_HOST = os.getenv("SUPABASE_DB_HOST", "db.ccvrmvauxkgbydecnfnq.supabase.co")
-PG_USER = os.getenv("SUPABASE_DB_USER", "postgres")
-PG_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "Ashok@8072014509")
+DEFAULT_POOLER_HOST = "aws-0-ap-south-1.pooler.supabase.com"
+DEFAULT_POOLER_USER = f"postgres.{SUPABASE_PROJECT_REF}"
+DEFAULT_POOLER_PASS = "Ashok@8072014509"
+DEFAULT_POOLER_URL = f"postgresql://{DEFAULT_POOLER_USER}:Ashok%408072014509@{DEFAULT_POOLER_HOST}:5432/postgres?sslmode=require"
+
+PG_HOST = os.getenv("SUPABASE_DB_HOST", DEFAULT_POOLER_HOST)
+PG_USER = os.getenv("SUPABASE_DB_USER", DEFAULT_POOLER_USER)
+PG_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", DEFAULT_POOLER_PASS)
 PG_PORT = int(os.getenv("SUPABASE_DB_PORT", 5432))
 PG_NAME = os.getenv("SUPABASE_DB_NAME", "postgres")
 
@@ -52,6 +58,21 @@ from contextlib import contextmanager
 # Support unified DATABASE_URL if present (Render/Supabase standard)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+def normalize_pg_dsn(url: Optional[str]) -> str:
+    """Normalize any database connection string to ensure IPv4 Pooler connectivity on Render"""
+    if not url:
+        return DEFAULT_POOLER_URL
+    # If using direct IPv6 Supabase host which is unreachable on Render/IPv4 environments, rewrite to working IPv4 connection pooler
+    if f"db.{SUPABASE_PROJECT_REF}.supabase.co" in url or "db.ccvrmvauxkgbydecnfnq.supabase.co" in url:
+        url = url.replace(f"db.{SUPABASE_PROJECT_REF}.supabase.co", DEFAULT_POOLER_HOST)
+        url = url.replace("db.ccvrmvauxkgbydecnfnq.supabase.co", DEFAULT_POOLER_HOST)
+        if f"postgres:{DEFAULT_POOLER_PASS}" in url or "postgres:Ashok" in url:
+            url = url.replace("postgres:", f"{DEFAULT_POOLER_USER}:")
+    if "sslmode=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}sslmode=require"
+    return url
+
 class DatabaseManager:
     def __init__(self):
         self.use_postgres = False
@@ -61,34 +82,19 @@ class DatabaseManager:
         self.pg_pool = None
         self._cached_lines = None
 
-        # Attempt connection to Supabase PostgreSQL with high-performance connection pool
+        # Attempt connection to Supabase PostgreSQL via Mumbai IPv4 Pooler
         try:
             import psycopg2
             from psycopg2 import pool
 
-            db_url = DATABASE_URL or os.getenv("SUPABASE_POSTGRES_URL")
-            if db_url:
-                if "sslmode=" not in db_url:
-                    sep = "&" if "?" in db_url else "?"
-                    db_url = f"{db_url}{sep}sslmode=require"
-                self.pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    dsn=db_url,
-                    connect_timeout=6
-                )
-            else:
-                self.pg_pool = psycopg2.pool.ThreadedConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    host=PG_HOST,
-                    user=PG_USER,
-                    password=PG_PASSWORD,
-                    port=PG_PORT,
-                    dbname=PG_NAME,
-                    sslmode="require",
-                    connect_timeout=6
-                )
+            raw_url = DATABASE_URL or os.getenv("SUPABASE_POSTGRES_URL") or DEFAULT_POOLER_URL
+            db_url = normalize_pg_dsn(raw_url)
+            self.pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=10,
+                dsn=db_url,
+                connect_timeout=8
+            )
 
             # Test connection liveness
             with self._get_pg_connection() as conn:
@@ -96,8 +102,11 @@ class DatabaseManager:
                     cur.execute("SELECT 1")
 
             self.use_postgres = True
-            self.db_status_message = f"Supabase PostgreSQL Live ({PG_HOST})"
-            print(f"[Database] Active ThreadedConnectionPool ready for Supabase PostgreSQL at {PG_HOST} (min=1, max=10)")
+            self.db_status_message = f"Supabase Cloud PostgreSQL Active ({DEFAULT_POOLER_HOST})"
+            print(f"[Database] Active ThreadedConnectionPool ready for Supabase PostgreSQL at {DEFAULT_POOLER_HOST} (min=1, max=10)")
+            
+            # Initialize schema and seed 4 lines
+            self._init_postgres()
         except Exception as e:
             self.use_postgres = False
             self.pg_pool = None
@@ -110,24 +119,9 @@ class DatabaseManager:
             import psycopg2
             from psycopg2 import pool
 
-            url = db_url or DATABASE_URL or os.getenv("SUPABASE_POSTGRES_URL")
-            if url:
-                if "sslmode=" not in url:
-                    sep = "&" if "?" in url else "?"
-                    url = f"{url}{sep}sslmode=require"
-                new_pool = psycopg2.pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=url, connect_timeout=6)
-            else:
-                new_pool = psycopg2.pool.ThreadedConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    host=PG_HOST,
-                    user=PG_USER,
-                    password=PG_PASSWORD,
-                    port=PG_PORT,
-                    dbname=PG_NAME,
-                    sslmode="require",
-                    connect_timeout=6
-                )
+            raw_url = db_url or DATABASE_URL or os.getenv("SUPABASE_POSTGRES_URL") or DEFAULT_POOLER_URL
+            url = normalize_pg_dsn(raw_url)
+            new_pool = psycopg2.pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=url, connect_timeout=8)
             # test
             conn = new_pool.getconn()
             with conn.cursor() as cur:
@@ -136,11 +130,58 @@ class DatabaseManager:
 
             self.pg_pool = new_pool
             self.use_postgres = True
-            self.db_status_message = f"Supabase PostgreSQL Live ({PG_HOST})"
+            self.db_status_message = f"Supabase Cloud PostgreSQL Active ({DEFAULT_POOLER_HOST})"
+            self._init_postgres()
             return True
         except Exception as e:
             self.db_status_message = f"SQLite Local Fallback ({e})"
             return False
+
+    def _init_postgres(self):
+        """Ensure Supabase schema is up-to-date, daily_entries.id is TEXT, and all 4 lines are seeded"""
+        try:
+            with self._get_pg_connection() as conn:
+                with conn.cursor() as cur:
+                    # 1. Alter daily_entries.id to TEXT if needed
+                    cur.execute("""
+                        DO $$
+                        BEGIN
+                            BEGIN
+                                ALTER TABLE public.daily_entries ALTER COLUMN id TYPE TEXT;
+                            EXCEPTION
+                                WHEN OTHERS THEN NULL;
+                            END;
+                        END $$;
+                    """)
+
+                    # 2. Seed all 4 lines
+                    for line in DEFAULT_LINES:
+                        cur.execute("""
+                            INSERT INTO public.lines (id, name, description, badge_color)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (id) DO UPDATE SET
+                                name = EXCLUDED.name,
+                                description = EXCLUDED.description,
+                                badge_color = EXCLUDED.badge_color;
+                        """, (line["id"], line["name"], line["description"], line["badge_color"]))
+
+                        cur.execute("""
+                            INSERT INTO public.line_bag_settings (line_id, starting_bag, notes)
+                            VALUES (%s, 1000000.00, %s)
+                            ON CONFLICT (line_id) DO NOTHING;
+                        """, (line["id"], f"{line['name']} Initial Bag Capital (10 Lakhs)"))
+
+                    # 3. Seed 40 Lakhs combined bag
+                    cur.execute("""
+                        INSERT INTO public.bag_settings (id, starting_bag, currency, notes)
+                        VALUES (1, 4000000.00, 'INR', 'Ashok Finance Combined Initial Bag Capital (40 Lakhs across 4 lines)')
+                        ON CONFLICT (id) DO UPDATE SET
+                            starting_bag = GREATEST(EXCLUDED.starting_bag, public.bag_settings.starting_bag);
+                    """)
+                conn.commit()
+            print("[Database] Supabase PostgreSQL initialized successfully (4 lines, TEXT id, 40L starting bag).")
+        except Exception as e:
+            print(f"[Database] Error in _init_postgres: {e}")
 
     @contextmanager
     def _get_pg_connection(self):
@@ -466,6 +507,14 @@ class DatabaseManager:
                         cur.execute("""
                             INSERT INTO public.daily_entries (id, entry_date, line_id, income, outgoing, net_amount, notes, created_at, updated_at)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                            ON CONFLICT (id) DO UPDATE SET
+                                entry_date = EXCLUDED.entry_date,
+                                line_id = EXCLUDED.line_id,
+                                income = EXCLUDED.income,
+                                outgoing = EXCLUDED.outgoing,
+                                net_amount = EXCLUDED.net_amount,
+                                notes = EXCLUDED.notes,
+                                updated_at = NOW()
                         """, (entry_id, date_str, line_id, float(income), float(outgoing), net_amount, notes))
                     conn.commit()
             except Exception as e:
@@ -476,6 +525,14 @@ class DatabaseManager:
             conn.execute("""
                 INSERT INTO daily_entries (id, entry_date, line_id, income, outgoing, net_amount, notes, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    entry_date = excluded.entry_date,
+                    line_id = excluded.line_id,
+                    income = excluded.income,
+                    outgoing = excluded.outgoing,
+                    net_amount = excluded.net_amount,
+                    notes = excluded.notes,
+                    updated_at = excluded.updated_at
             """, (entry_id, date_str, line_id, float(income), float(outgoing), net_amount, notes, now_str, now_str))
             conn.commit()
 

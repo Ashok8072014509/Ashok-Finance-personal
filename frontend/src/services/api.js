@@ -1033,13 +1033,16 @@ export const api = {
 
     if (backendUrl) {
       try {
-        const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(4000) });
+        const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
           const data = await res.json();
           result.backendOnline = true;
           result.dbSource = data.database_source;
           result.dbStatusMessage = data.database_status_message;
           result.backendTotalEntries = data.total_entries;
+          if (data.database_source === 'supabase') {
+            result.supabaseOnline = true;
+          }
         }
       } catch {
         result.backendOnline = false;
@@ -1049,13 +1052,87 @@ export const api = {
     if (supabase) {
       try {
         const { error } = await supabase.from('lines').select('id').limit(1);
-        result.supabaseOnline = !error;
+        if (!error) result.supabaseOnline = true;
       } catch {
-        result.supabaseOnline = false;
+        // Continue
       }
     }
 
     return result;
+  },
+
+  // Bulk import and restore entries directly into browser storage & cloud database
+  bulkImportEntries: async (importedList = []) => {
+    if (!Array.isArray(importedList) || importedList.length === 0) {
+      return { success: false, message: 'No entries to import', count: 0 };
+    }
+    const lineMap = Object.fromEntries(DEFAULT_LINES.map((l) => [l.id, l.name]));
+    const nowIso = new Date().toISOString();
+
+    const formatted = importedList.map((item, idx) => {
+      const eDate = normalizeDateStr(item.entry_date || item.date);
+      const inc = Number(item.income || item.collection) || 0;
+      const out = Number(item.outgoing || item.disbursement) || 0;
+      const lid = item.line_id || 'morning';
+      return {
+        id: item.id || `af_import_${Date.now()}_${idx}`,
+        entry_date: eDate,
+        line_id: lid,
+        line_name: lineMap[lid] || lid,
+        income: inc,
+        outgoing: out,
+        net_amount: inc - out,
+        notes: (item.notes || '').trim(),
+        created_at: item.created_at || nowIso,
+        updated_at: item.updated_at || nowIso,
+      };
+    });
+
+    const localExisting = getLocalEntries();
+    const merged = mergeEntries(formatted, localExisting);
+    saveLocalEntries(merged);
+
+    // Sync to backend
+    const backendUrl = getBackendUrl();
+    if (backendUrl) {
+      try {
+        await fetch(`${backendUrl}/api/entries/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ entries: merged }),
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch (e) {
+        console.warn('Backend sync failed during bulk import:', e);
+      }
+    }
+
+    const settings = getLocalSettings();
+    const bagStatus = calculateBagStatus(settings.line_starting_bags || settings.starting_bag, merged);
+    return { success: true, count: merged.length, entries: merged, bagStatus };
+  },
+
+  // Export full JSON ledger backup
+  exportBackupJson: () => {
+    const entries = getLocalEntries();
+    const settings = getLocalSettings();
+    const payload = {
+      app: 'Ashok Finance Ledger',
+      exported_at: new Date().toISOString(),
+      starting_bag: settings.starting_bag,
+      line_starting_bags: settings.line_starting_bags,
+      entries_count: entries.length,
+      entries,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ashok_finance_backup_${getLocalDateStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   // Reconnect database
