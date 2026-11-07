@@ -20,6 +20,8 @@ export default function LineTabs({
         return <Sparkles className="w-4 h-4 text-rose-500" />;
       case 'friday':
         return <CalendarDays className="w-4 h-4 text-emerald-500" />;
+      case 'saturday':
+        return <CalendarDays className="w-4 h-4 text-indigo-500" />;
       default:
         return <Layers className="w-4 h-4 text-slate-500" />;
     }

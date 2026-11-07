@@ -48,9 +48,15 @@ DEFAULT_LINES = [
         "description": "Friday Weekly Collection & Disbursement Line",
         "badge_color": "#059669",
     },
+    {
+        "id": "saturday",
+        "name": "ASHOK FINANCE SATURDAY",
+        "description": "Saturday Weekend Settlement & Disbursement Line",
+        "badge_color": "#4F46E5",
+    },
 ]
 
-DEFAULT_STARTING_BAG = 1000000.0  # 10 Lakhs per line (4 lines = 40 Lakhs combined baseline)
+DEFAULT_STARTING_BAG = 1000000.0  # 10 Lakhs per line (5 lines = 50 Lakhs combined baseline)
 
 
 from contextlib import contextmanager
@@ -171,15 +177,15 @@ class DatabaseManager:
                             ON CONFLICT (line_id) DO NOTHING;
                         """, (line["id"], f"{line['name']} Initial Bag Capital (10 Lakhs)"))
 
-                    # 3. Seed 40 Lakhs combined bag
+                    # 3. Seed 50 Lakhs combined bag
                     cur.execute("""
                         INSERT INTO public.bag_settings (id, starting_bag, currency, notes)
-                        VALUES (1, 4000000.00, 'INR', 'Ashok Finance Combined Initial Bag Capital (40 Lakhs across 4 lines)')
+                        VALUES (1, 5000000.00, 'INR', 'Ashok Finance Combined Initial Bag Capital (50 Lakhs across 5 lines)')
                         ON CONFLICT (id) DO UPDATE SET
                             starting_bag = GREATEST(EXCLUDED.starting_bag, public.bag_settings.starting_bag);
                     """)
                 conn.commit()
-            print("[Database] Supabase PostgreSQL initialized successfully (4 lines, TEXT id, 40L starting bag).")
+            print("[Database] Supabase PostgreSQL initialized successfully (5 lines, TEXT id, 50L starting bag).")
         except Exception as e:
             print(f"[Database] Error in _init_postgres: {e}")
 
@@ -308,6 +314,7 @@ class DatabaseManager:
             "evening_1": 1000000.0,
             "evening_2": 1000000.0,
             "friday": 1000000.0,
+            "saturday": 1000000.0,
         }
         if self.use_postgres:
             try:

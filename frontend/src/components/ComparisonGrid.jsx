@@ -65,9 +65,20 @@ export default function ComparisonGrid({
       buttonBg: 'bg-emerald-700 hover:bg-emerald-800 text-white',
       bagAccent: 'text-emerald-900',
     },
+    saturday: {
+      name: 'Ashok Finance Saturday',
+      route: 'Saturday Weekend Route & Merchant Line',
+      icon: CalendarDays,
+      headerBg: 'from-indigo-900 via-indigo-950 to-slate-900',
+      badgeBg: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+      badgeText: 'SATURDAY LINE',
+      cardBorder: 'border-indigo-200/90 hover:border-indigo-400',
+      buttonBg: 'bg-indigo-700 hover:bg-indigo-800 text-white',
+      bagAccent: 'text-indigo-900',
+    },
   };
 
-  const linesList = ['morning', 'evening_1', 'evening_2', 'friday'].map((id) => {
+  const linesList = ['morning', 'evening_1', 'evening_2', 'friday', 'saturday'].map((id) => {
     const summary = linesSummary.find((s) => s.line_id === id) || {
       line_id: id,
       line_name: id,
@@ -96,7 +107,7 @@ export default function ComparisonGrid({
         <div>
           <div className="inline-flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-red-700">
             <BarChart3 className="w-4 h-4" />
-            <span>3-Way Finance Lines Side-by-Side Comparison</span>
+            <span>5-Way Finance Lines Side-by-Side Comparison</span>
           </div>
           <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
             Independent Line Capital, Cashflow & Bag Calculations
@@ -107,8 +118,8 @@ export default function ComparisonGrid({
         </p>
       </div>
 
-      {/* 3-Column Comparison Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+      {/* 5-Column Comparison Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
         {linesList.map((line) => {
           const cfg = line.config;
           const Icon = cfg.icon;

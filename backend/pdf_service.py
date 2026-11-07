@@ -124,7 +124,7 @@ def generate_financial_pdf(
     # 1. Header Banner
     story.append(Paragraph("ASHOK FINANCE", title_style))
     story.append(Spacer(1, 4))
-    story.append(Paragraph("ASHOK FINANCE MORNING &bull; ASHOK FINANCE EVENING 1 &bull; ASHOK FINANCE EVENING 2", subtitle_style))
+    story.append(Paragraph("MORNING &bull; EVENING 1 &bull; EVENING 2 &bull; FRIDAY &bull; SATURDAY (5 LINES)", subtitle_style))
     story.append(Spacer(1, 2))
     
     now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")

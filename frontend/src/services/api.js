@@ -26,6 +26,12 @@ const DEFAULT_LINES = [
     description: 'Friday Weekly Collection & Disbursement Line',
     badge_color: '#059669',
   },
+  {
+    id: 'saturday',
+    name: 'ASHOK FINANCE SATURDAY',
+    description: 'Saturday Weekend Settlement & Disbursement Line',
+    badge_color: '#4F46E5',
+  },
 ];
 
 const DEFAULT_LINE_STARTING_BAGS = {
@@ -33,9 +39,10 @@ const DEFAULT_LINE_STARTING_BAGS = {
   evening_1: 1000000,
   evening_2: 1000000,
   friday: 1000000,
+  saturday: 1000000,
 };
 
-const DEFAULT_STARTING_BAG = 4000000; // 4 lines combined default (10L each)
+const DEFAULT_STARTING_BAG = 5000000; // 5 lines combined default (10L each)
 
 // Safe Storage helper for browser and test environments
 const safeStorage = {
@@ -109,11 +116,20 @@ const getLocalSettings = () => {
         parsed.line_starting_bags = { ...DEFAULT_LINE_STARTING_BAGS };
         parsed.starting_bag = DEFAULT_STARTING_BAG;
         safeStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(parsed));
-      } else if (!parsed.line_starting_bags.friday) {
-        // Automatically add Friday line without modifying or removing any existing line settings
-        parsed.line_starting_bags.friday = 1000000;
-        parsed.starting_bag = Object.values(parsed.line_starting_bags).reduce((a, b) => a + Number(b), 0);
-        safeStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(parsed));
+      } else {
+        let changed = false;
+        if (!parsed.line_starting_bags.friday) {
+          parsed.line_starting_bags.friday = 1000000;
+          changed = true;
+        }
+        if (!parsed.line_starting_bags.saturday) {
+          parsed.line_starting_bags.saturday = 1000000;
+          changed = true;
+        }
+        if (changed) {
+          parsed.starting_bag = Object.values(parsed.line_starting_bags).reduce((a, b) => a + Number(b), 0);
+          safeStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(parsed));
+        }
       }
       return parsed;
     } catch {
@@ -249,10 +265,10 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
     }
   } else if (typeof startingBagsInput === 'number') {
     if (startingBagsInput === 1000000) {
-      lineStartingBags = { morning: 1000000, evening_1: 1000000, evening_2: 1000000, friday: 1000000 };
+      lineStartingBags = { morning: 1000000, evening_1: 1000000, evening_2: 1000000, friday: 1000000, saturday: 1000000 };
     } else {
-      const perLine = Math.round(startingBagsInput / 4);
-      lineStartingBags = { morning: perLine, evening_1: perLine, evening_2: perLine, friday: perLine };
+      const perLine = Math.round(startingBagsInput / 5);
+      lineStartingBags = { morning: perLine, evening_1: perLine, evening_2: perLine, friday: perLine, saturday: perLine };
     }
   }
 
@@ -353,6 +369,30 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
       month_net: 0,
       entries_count: 0 
     },
+    saturday: { 
+      line_id: 'saturday', 
+      line_name: 'ASHOK FINANCE SATURDAY', 
+      starting_bag: Number(lineStartingBags.saturday) || 1000000,
+      opening_bag: Number(lineStartingBags.saturday) || 1000000,
+      current_bag: Number(lineStartingBags.saturday) || 1000000,
+      total_income: 0, 
+      total_outgoing: 0, 
+      net_amount: 0, 
+      today_income: 0,
+      today_outgoing: 0,
+      today_net: 0,
+      yesterday_income: 0,
+      yesterday_outgoing: 0,
+      yesterday_net: 0,
+      last_entry_date: null,
+      last_entry_income: 0,
+      last_entry_outgoing: 0,
+      last_entry_net: 0,
+      month_income: 0,
+      month_outgoing: 0,
+      month_net: 0,
+      entries_count: 0 
+    },
   };
 
   let totalIncome = 0;
@@ -364,14 +404,14 @@ export const calculateBagStatus = (startingBagsInput, entries = []) => {
   let monthIncome = 0;
   let monthOutgoing = 0;
   let priorToTodayNet = 0;
-  const linePriorToTodayNet = { morning: 0, evening_1: 0, evening_2: 0, friday: 0 };
+  const linePriorToTodayNet = { morning: 0, evening_1: 0, evening_2: 0, friday: 0, saturday: 0 };
 
   const todayStr = getLocalDateStr();
   const yesterdayStr = getYesterdayDateStr();
   const monthPrefix = todayStr.slice(0, 7);
 
   const overallDatesMap = {};
-  const lineDatesMap = { morning: {}, evening_1: {}, evening_2: {}, friday: {} };
+  const lineDatesMap = { morning: {}, evening_1: {}, evening_2: {}, friday: {}, saturday: {} };
 
   entries.forEach((e) => {
     const inc = Number(e.income) || 0;
@@ -594,8 +634,8 @@ export const api = {
         } else {
           const { data: sData } = await supabase.from('bag_settings').select('*').eq('id', 1).maybeSingle();
           if (sData?.starting_bag) {
-            const perLine = Math.round(Number(sData.starting_bag) / 4);
-            lineBags = { morning: perLine, evening_1: perLine, evening_2: perLine, friday: perLine };
+            const perLine = Math.round(Number(sData.starting_bag) / 5);
+            lineBags = { morning: perLine, evening_1: perLine, evening_2: perLine, friday: perLine, saturday: perLine };
           }
         }
 
@@ -649,6 +689,7 @@ export const api = {
         evening_1: Number(newStartingBag),
         evening_2: Number(newStartingBag),
         friday: Number(newStartingBag),
+        saturday: Number(newStartingBag),
       };
     }
 

@@ -15,7 +15,7 @@ import { Plus, Layers, Sun, Sunset, Moon, CalendarDays } from 'lucide-react';
 
 export default function App() {
   const [lines, setLines] = useState([]);
-  const [activeLineId, setActiveLineId] = useState('all'); // 'all', 'morning', 'evening_1', 'evening_2', 'friday'
+  const [activeLineId, setActiveLineId] = useState('all'); // 'all', 'morning', 'evening_1', 'evening_2', 'friday', 'saturday'
   const [bagStatus, setBagStatus] = useState(null);
   const [entries, setEntries] = useState([]);
   const [dataSource, setDataSource] = useState('local');
@@ -248,6 +248,17 @@ export default function App() {
           <CalendarDays className="w-5 h-5 mb-0.5" />
           <span className="text-[10px] tracking-tight">Friday</span>
         </button>
+
+        <button
+          id="mobile-nav-saturday"
+          onClick={() => setActiveLineId('saturday')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer active:scale-95 ${
+            activeLineId === 'saturday' ? 'text-indigo-700 font-extrabold' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <CalendarDays className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] tracking-tight">Saturday</span>
+        </button>
       </nav>
 
       {/* Modals */}
@@ -278,7 +289,7 @@ export default function App() {
       <BagEditModal
         isOpen={isBagEditModalOpen}
         onClose={() => setIsBagEditModalOpen(false)}
-        startingBag={bagStatus?.starting_bag || 3000000}
+        startingBag={bagStatus?.starting_bag || 5000000}
         lineStartingBags={bagStatus?.line_starting_bags || {}}
         defaultLineId={activeLineId}
         onSave={handleSaveStartingBag}

@@ -147,7 +147,7 @@ export const generateClientPDF = ({
     doc.setFontSize(9);
     doc.setTextColor(...textMuted);
     doc.text(
-      'ASHOK FINANCE MORNING  •  ASHOK FINANCE EVENING 1  •  ASHOK FINANCE EVENING 2',
+      'MORNING  •  EVENING 1  •  EVENING 2  •  FRIDAY  •  SATURDAY (5 LINES)',
       pageWidth / 2,
       52,
       { align: 'center' }

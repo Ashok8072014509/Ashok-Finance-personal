@@ -17,7 +17,7 @@ from pdf_service import generate_financial_pdf
 
 app = FastAPI(
     title="Ashok Finance API",
-    description="Backend service for Ashok Finance tracking 3 distinct lines and ₹10 Lakhs Bag capital balance.",
+    description="Backend service for Ashok Finance tracking 5 distinct lines and ₹10 Lakhs Bag capital balance per line.",
     version="1.0.0"
 )
 
@@ -127,7 +127,7 @@ def update_bag_settings(payload: BagSettingsUpdate):
 def get_entries(
     start_date: Optional[date] = Query(None, description="Start date filter YYYY-MM-DD"),
     end_date: Optional[date] = Query(None, description="End date filter YYYY-MM-DD"),
-    line_id: Optional[str] = Query(None, description="Line identifier: morning, evening_1, evening_2, friday, or all")
+    line_id: Optional[str] = Query(None, description="Line identifier: morning, evening_1, evening_2, friday, saturday, or all")
 ):
     entries = db.get_entries(start_date=start_date, end_date=end_date, line_id=line_id)
     return entries

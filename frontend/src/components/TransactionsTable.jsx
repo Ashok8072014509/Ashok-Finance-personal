@@ -139,6 +139,13 @@ export default function TransactionsTable({
             <span>FRIDAY</span>
           </span>
         );
+      case 'saturday':
+        return (
+          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+            <CalendarDays className="w-3 h-3 text-indigo-600" />
+            <span>SATURDAY</span>
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">

@@ -53,6 +53,7 @@ export default function ExportPdfModal({
     { id: 'evening_1', name: 'Ashok Finance Evening 1', icon: Sunset, badge: 'Evening 1' },
     { id: 'evening_2', name: 'Ashok Finance Evening 2', icon: Moon, badge: 'Evening 2' },
     { id: 'friday', name: 'Ashok Finance Friday', icon: CalendarDays, badge: 'Friday Line' },
+    { id: 'saturday', name: 'Ashok Finance Saturday', icon: CalendarDays, badge: 'Saturday Line' },
   ];
 
   // Calculate matching date range based on periodType

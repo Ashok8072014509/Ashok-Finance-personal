@@ -27,8 +27,8 @@ export default function FinanceModeBar({
       shortName: 'Combined',
       badge: 'Master View',
       icon: Layers,
-      description: '4 Lines Unified Overview & Comparison',
-      currentBag: bagStatus?.current_bag || 4000000,
+      description: '5 Lines Unified Overview & Comparison',
+      currentBag: bagStatus?.current_bag || 5000000,
       netAmount: bagStatus?.total_net || 0,
       monthIncome: bagStatus?.month_income || 0,
       monthOutgoing: bagStatus?.month_outgoing || 0,
@@ -106,6 +106,23 @@ export default function FinanceModeBar({
       tagBg: 'bg-emerald-100 text-emerald-800',
       iconBg: 'bg-emerald-600 text-white',
     },
+    {
+      id: 'saturday',
+      name: 'Ashok Finance Saturday',
+      shortName: 'Saturday Line',
+      badge: 'Saturday Route',
+      icon: CalendarDays,
+      description: 'Saturday Weekend Settlement & Disbursement Line',
+      currentBag: lineDataMap['saturday']?.current_bag || 1000000,
+      netAmount: lineDataMap['saturday']?.net_amount || 0,
+      monthIncome: lineDataMap['saturday']?.month_income || 0,
+      monthOutgoing: lineDataMap['saturday']?.month_outgoing || 0,
+      monthNet: lineDataMap['saturday']?.month_net || 0,
+      accentColor: 'from-indigo-700 to-indigo-950',
+      activeBorder: 'border-indigo-600 bg-indigo-50/90 text-indigo-950 ring-2 ring-indigo-500/20',
+      tagBg: 'bg-indigo-100 text-indigo-800',
+      iconBg: 'bg-indigo-600 text-white',
+    },
   ];
 
   return (
@@ -122,8 +139,8 @@ export default function FinanceModeBar({
         </span>
       </div>
 
-      {/* Grid of 4 Modes */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+      {/* Grid of 6 Modes (All + 5 Lines) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-2.5">
         {modes.map((mode) => {
           const Icon = mode.icon;
           const isActive = activeMode === mode.id;

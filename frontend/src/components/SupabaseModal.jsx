@@ -65,7 +65,8 @@ INSERT INTO public.lines (id, name, badge_color) VALUES
     ('morning', 'ASHOK FINANCE MORNING', '#DC2626'),
     ('evening_1', 'ASHOK FINANCE EVENING 1', '#B91C1C'),
     ('evening_2', 'ASHOK FINANCE EVENING 2', '#991B1B'),
-    ('friday', 'ASHOK FINANCE FRIDAY', '#059669')
+    ('friday', 'ASHOK FINANCE FRIDAY', '#059669'),
+    ('saturday', 'ASHOK FINANCE SATURDAY', '#4F46E5')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.bag_settings (id, starting_bag) VALUES (1, 1000000.00)

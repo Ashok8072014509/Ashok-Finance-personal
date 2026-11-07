@@ -138,8 +138,8 @@ export default function WelcomeBanner({
   const modeThemes = {
     all: {
       title: 'Ashok Finance Consolidated Overview',
-      subtitle: 'Tracking Morning, Evening 1, Evening 2 & Friday lines with dedicated baseline capital.',
-      badgeText: 'CONSOLIDATED 4-LINE VIEW',
+      subtitle: 'Tracking Morning, Evening 1, Evening 2, Friday & Saturday lines with dedicated baseline capital.',
+      badgeText: 'CONSOLIDATED 5-LINE VIEW',
       bannerBg: 'from-slate-900 via-red-950 to-red-900',
       icon: Layers,
       lineLabel: 'Combined Bag Balance',
@@ -175,6 +175,14 @@ export default function WelcomeBanner({
       bannerBg: 'from-emerald-900 via-teal-900 to-slate-950',
       icon: CalendarDays,
       lineLabel: 'Friday Bag Balance',
+    },
+    saturday: {
+      title: 'Ashok Finance Saturday Line',
+      subtitle: 'Saturday Weekend Settlement, merchant collection & loan disbursements with ₹10,00,000 dedicated baseline.',
+      badgeText: 'DEDICATED SATURDAY WORKSPACE',
+      bannerBg: 'from-indigo-950 via-indigo-900 to-slate-950',
+      icon: CalendarDays,
+      lineLabel: 'Saturday Bag Balance',
     },
   };
 
