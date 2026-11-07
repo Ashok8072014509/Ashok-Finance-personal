@@ -7,6 +7,7 @@ import {
   ArrowDownRight, 
   Edit3, 
   Calendar,
+  CalendarDays,
   Sparkles,
   Sun,
   Sunset,
@@ -137,8 +138,8 @@ export default function WelcomeBanner({
   const modeThemes = {
     all: {
       title: 'Ashok Finance Consolidated Overview',
-      subtitle: 'Tracking Morning, Evening 1 & Evening 2 lines with ₹30,00,000 total baseline capital.',
-      badgeText: 'CONSOLIDATED 3-LINE VIEW',
+      subtitle: 'Tracking Morning, Evening 1, Evening 2 & Friday lines with dedicated baseline capital.',
+      badgeText: 'CONSOLIDATED 4-LINE VIEW',
       bannerBg: 'from-slate-900 via-red-950 to-red-900',
       icon: Layers,
       lineLabel: 'Combined Bag Balance',
@@ -166,6 +167,14 @@ export default function WelcomeBanner({
       bannerBg: 'from-rose-900 via-purple-900 to-slate-950',
       icon: Moon,
       lineLabel: 'Evening 2 Bag Balance',
+    },
+    friday: {
+      title: 'Ashok Finance Friday Line',
+      subtitle: 'Friday Weekly Collection, merchant settlement & disbursements with ₹10,00,000 dedicated baseline.',
+      badgeText: 'DEDICATED FRIDAY WORKSPACE',
+      bannerBg: 'from-emerald-900 via-teal-900 to-slate-950',
+      icon: CalendarDays,
+      lineLabel: 'Friday Bag Balance',
     },
   };
 

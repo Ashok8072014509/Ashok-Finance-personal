@@ -11,7 +11,8 @@ import {
   FileSpreadsheet,
   Sun,
   Moon,
-  Sparkles
+  Sparkles,
+  CalendarDays
 } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
 import { getLocalDateStr, getYesterdayDateStr, normalizeDateStr } from '../services/api';
@@ -129,6 +130,13 @@ export default function TransactionsTable({
           <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
             <Sparkles className="w-3 h-3 text-rose-600" />
             <span>EVENING 2</span>
+          </span>
+        );
+      case 'friday':
+        return (
+          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <CalendarDays className="w-3 h-3 text-emerald-600" />
+            <span>FRIDAY</span>
           </span>
         );
       default:

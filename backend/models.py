@@ -33,11 +33,12 @@ class DailyEntryResponse(DailyEntryBase):
     updated_at: Optional[datetime] = None
 
 class BagSettingsModel(BaseModel):
-    starting_bag: float = Field(default=3000000.0, ge=0.0)
+    starting_bag: float = Field(default=4000000.0, ge=0.0)
     line_starting_bags: Dict[str, float] = Field(default_factory=lambda: {
         "morning": 1000000.0,
         "evening_1": 1000000.0,
-        "evening_2": 1000000.0
+        "evening_2": 1000000.0,
+        "friday": 1000000.0
     })
     currency: str = "INR"
     notes: Optional[str] = "Ashok Finance Bag Capital"
@@ -45,7 +46,7 @@ class BagSettingsModel(BaseModel):
 
 class BagSettingsUpdate(BaseModel):
     starting_bag: Optional[float] = Field(default=None, ge=0.0)
-    line_id: Optional[str] = None  # None or "all" or specific line_id ("morning", "evening_1", "evening_2")
+    line_id: Optional[str] = None  # None or "all" or specific line_id ("morning", "evening_1", "evening_2", "friday")
     line_starting_bags: Optional[Dict[str, float]] = None
     notes: Optional[str] = None
 

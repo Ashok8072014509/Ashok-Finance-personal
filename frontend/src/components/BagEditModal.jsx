@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Wallet, Check, AlertCircle, Sun, Sunset, Moon, Layers } from 'lucide-react';
+import { X, Wallet, Check, AlertCircle, Sun, Sunset, Moon, CalendarDays, Layers } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
 
 export default function BagEditModal({ 
@@ -71,7 +71,8 @@ export default function BagEditModal({
     { id: 'morning', name: 'Ashok Finance Morning', icon: Sun, color: 'text-amber-700 bg-amber-50 border-amber-200' },
     { id: 'evening_1', name: 'Ashok Finance Evening 1', icon: Sunset, color: 'text-red-700 bg-rose-50 border-rose-200' },
     { id: 'evening_2', name: 'Ashok Finance Evening 2', icon: Moon, color: 'text-purple-700 bg-purple-50 border-purple-200' },
-    { id: 'all', name: 'All 3 Finances Uniformly', icon: Layers, color: 'text-slate-800 bg-slate-100 border-slate-300' },
+    { id: 'friday', name: 'Ashok Finance Friday', icon: CalendarDays, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+    { id: 'all', name: 'All Finances Uniformly', icon: Layers, color: 'text-slate-800 bg-slate-100 border-slate-300' },
   ];
 
   return (

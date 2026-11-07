@@ -3,6 +3,7 @@ import {
   Sun, 
   Sunset, 
   Moon, 
+  CalendarDays,
   ArrowRight, 
   TrendingUp, 
   TrendingDown, 
@@ -53,9 +54,20 @@ export default function ComparisonGrid({
       buttonBg: 'bg-purple-800 hover:bg-purple-900 text-white',
       bagAccent: 'text-purple-900',
     },
+    friday: {
+      name: 'Ashok Finance Friday',
+      route: 'Friday Weekly Route & Merchant Line',
+      icon: CalendarDays,
+      headerBg: 'from-emerald-800 via-teal-900 to-slate-900',
+      badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+      badgeText: 'FRIDAY LINE',
+      cardBorder: 'border-emerald-200/90 hover:border-emerald-400',
+      buttonBg: 'bg-emerald-700 hover:bg-emerald-800 text-white',
+      bagAccent: 'text-emerald-900',
+    },
   };
 
-  const linesList = ['morning', 'evening_1', 'evening_2'].map((id) => {
+  const linesList = ['morning', 'evening_1', 'evening_2', 'friday'].map((id) => {
     const summary = linesSummary.find((s) => s.line_id === id) || {
       line_id: id,
       line_name: id,

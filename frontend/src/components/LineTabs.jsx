@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, Sparkles, Layers } from 'lucide-react';
+import { Sun, Moon, Sparkles, CalendarDays, Layers } from 'lucide-react';
 import { formatINR } from '../services/pdfGenerator';
 
 export default function LineTabs({ 
@@ -18,6 +18,8 @@ export default function LineTabs({
         return <Moon className="w-4 h-4 text-red-500" />;
       case 'evening_2':
         return <Sparkles className="w-4 h-4 text-rose-500" />;
+      case 'friday':
+        return <CalendarDays className="w-4 h-4 text-emerald-500" />;
       default:
         return <Layers className="w-4 h-4 text-slate-500" />;
     }

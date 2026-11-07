@@ -58,25 +58,27 @@ CREATE INDEX IF NOT EXISTS idx_entries_date ON public.daily_entries(entry_date D
 CREATE INDEX IF NOT EXISTS idx_entries_line ON public.daily_entries(line_id);
 CREATE INDEX IF NOT EXISTS idx_entries_date_line ON public.daily_entries(entry_date, line_id);
 
--- 6. Insert Default Lines (3 dedicated business lines)
+-- 6. Insert Default Lines (4 dedicated business lines)
 INSERT INTO public.lines (id, name, description, badge_color)
 VALUES 
     ('morning', 'ASHOK FINANCE MORNING', 'Morning Collection & Disbursement Line', '#DC2626'),
     ('evening_1', 'ASHOK FINANCE EVENING 1', 'Evening Line 1 Collection & Disbursement', '#B91C1C'),
-    ('evening_2', 'ASHOK FINANCE EVENING 2', 'Evening Line 2 Collection & Disbursement', '#991B1B')
+    ('evening_2', 'ASHOK FINANCE EVENING 2', 'Evening Line 2 Collection & Disbursement', '#991B1B'),
+    ('friday', 'ASHOK FINANCE FRIDAY', 'Friday Weekly Collection & Disbursement Line', '#059669')
 ON CONFLICT (id) DO UPDATE 
 SET name = EXCLUDED.name, description = EXCLUDED.description;
 
--- 7. Insert Initial Bag Settings (₹10,00,000 / 10 Lakhs per line = ₹30 Lakhs total)
+-- 7. Insert Initial Bag Settings (₹10,00,000 / 10 Lakhs per line = ₹40 Lakhs total)
 INSERT INTO public.bag_settings (id, starting_bag, currency, notes)
-VALUES (1, 3000000.00, 'INR', 'Ashok Finance Combined Initial Bag Capital (30 Lakhs)')
+VALUES (1, 4000000.00, 'INR', 'Ashok Finance Combined Initial Bag Capital (40 Lakhs)')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.line_bag_settings (line_id, starting_bag, notes)
 VALUES 
     ('morning', 1000000.00, 'Morning Line Initial Bag Capital (10 Lakhs)'),
     ('evening_1', 1000000.00, 'Evening Line 1 Initial Bag Capital (10 Lakhs)'),
-    ('evening_2', 1000000.00, 'Evening Line 2 Initial Bag Capital (10 Lakhs)')
+    ('evening_2', 1000000.00, 'Evening Line 2 Initial Bag Capital (10 Lakhs)'),
+    ('friday', 1000000.00, 'Friday Line Initial Bag Capital (10 Lakhs)')
 ON CONFLICT (line_id) DO NOTHING;
 
 

@@ -36,9 +36,15 @@ DEFAULT_LINES = [
         "description": "Evening Line 2 Collection & Disbursement",
         "badge_color": "#991B1B",
     },
+    {
+        "id": "friday",
+        "name": "ASHOK FINANCE FRIDAY",
+        "description": "Friday Weekly Collection & Disbursement Line",
+        "badge_color": "#059669",
+    },
 ]
 
-DEFAULT_STARTING_BAG = 1000000.0  # 10 Lakhs per line = 30 Lakhs combined
+DEFAULT_STARTING_BAG = 1000000.0  # 10 Lakhs per line (4 lines = 40 Lakhs combined baseline)
 
 
 from contextlib import contextmanager
@@ -260,6 +266,7 @@ class DatabaseManager:
             "morning": 1000000.0,
             "evening_1": 1000000.0,
             "evening_2": 1000000.0,
+            "friday": 1000000.0,
         }
         if self.use_postgres:
             try:
@@ -331,7 +338,7 @@ class DatabaseManager:
             if starting_bag is not None:
                 current_bags[line_id] = float(starting_bag)
         elif starting_bag is not None:
-            per_line = round(float(starting_bag) / 3.0, 2)
+            per_line = round(float(starting_bag) / float(len(current_bags) or 4), 2)
             for lid in current_bags:
                 current_bags[lid] = per_line
 

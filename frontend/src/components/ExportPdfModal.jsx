@@ -8,6 +8,7 @@ import {
   Sun, 
   Sunset, 
   Moon, 
+  CalendarDays,
   CheckCircle2, 
   TrendingUp, 
   TrendingDown, 
@@ -51,6 +52,7 @@ export default function ExportPdfModal({
     { id: 'morning', name: 'Ashok Finance Morning', icon: Sun, badge: 'Morning Line' },
     { id: 'evening_1', name: 'Ashok Finance Evening 1', icon: Sunset, badge: 'Evening 1' },
     { id: 'evening_2', name: 'Ashok Finance Evening 2', icon: Moon, badge: 'Evening 2' },
+    { id: 'friday', name: 'Ashok Finance Friday', icon: CalendarDays, badge: 'Friday Line' },
   ];
 
   // Calculate matching date range based on periodType

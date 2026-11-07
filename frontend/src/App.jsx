@@ -11,11 +11,11 @@ import SupabaseModal from './components/SupabaseModal';
 import ExportPdfModal from './components/ExportPdfModal';
 import { api } from './services/api';
 import { generateClientPDF } from './services/pdfGenerator';
-import { Plus, Layers, Sun, Sunset, Moon } from 'lucide-react';
+import { Plus, Layers, Sun, Sunset, Moon, CalendarDays } from 'lucide-react';
 
 export default function App() {
   const [lines, setLines] = useState([]);
-  const [activeLineId, setActiveLineId] = useState('all'); // 'all', 'morning', 'evening_1', 'evening_2'
+  const [activeLineId, setActiveLineId] = useState('all'); // 'all', 'morning', 'evening_1', 'evening_2', 'friday'
   const [bagStatus, setBagStatus] = useState(null);
   const [entries, setEntries] = useState([]);
   const [dataSource, setDataSource] = useState('local');
@@ -236,6 +236,17 @@ export default function App() {
         >
           <Moon className="w-5 h-5 mb-0.5" />
           <span className="text-[10px] tracking-tight">Eve 2</span>
+        </button>
+
+        <button
+          id="mobile-nav-friday"
+          onClick={() => setActiveLineId('friday')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition cursor-pointer active:scale-95 ${
+            activeLineId === 'friday' ? 'text-emerald-700 font-extrabold' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <CalendarDays className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] tracking-tight">Friday</span>
         </button>
       </nav>
 

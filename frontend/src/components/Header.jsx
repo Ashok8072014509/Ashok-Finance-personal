@@ -61,12 +61,12 @@ export default function Header({
                   </span>
                 ) : (
                   <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                    3 Lines
+                    4 Lines
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block mt-0.5 font-medium">
-                3 Dedicated Lines • Daily Income & Outgoing Capital Bag
+                4 Dedicated Lines • Daily Income & Outgoing Capital Bag
               </p>
             </div>
           </div>
